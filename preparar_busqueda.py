@@ -5,7 +5,7 @@ root=Path('.');entries=[]
 for p in sorted(root.rglob('*.html')):
  s=BeautifulSoup(p.read_text(encoding='utf8'),'html.parser'); main=s.select_one('main');h=main.select_one('h1') if main else None
  if not main or not h:continue
- title=' '.join(h.get_text(' ',strip=True).split()); paragraphs=[' '.join(x.get_text(' ',strip=True).split()) for x in main.select('p')];text=' '.join(paragraphs);entries.append({'title':title,'url':p.as_posix(),'text':text[:3500]})
+ title=' '.join(h.get_text(' ',strip=True).split()); paragraphs=[' '.join(x.get_text(' ',strip=True).split()) for x in main.select('p,li')];text=' '.join(paragraphs);entries.append({'title':title,'url':p.as_posix(),'text':text[:3500]})
  entries[-1]['excerpt']=next((x for x in paragraphs if len(x)>35),'')[:180]
 (root/'busqueda-datos.js').write_text('window.PCC_SEARCH_INDEX = '+json.dumps(entries,ensure_ascii=False,separators=(',',':'))+';\n',encoding='utf8')
 for p in root.rglob('*.html'):
