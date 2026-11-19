@@ -15,7 +15,7 @@ const Panel = (() => {
       throw new Error("No hay conexión. Revisa tu internet e intenta de nuevo.");
     }
     const j = await r.json().catch(() => ({}));
-    const enEntrada = location.pathname === "/panel/" || location.pathname === "/panel/index.html";
+    const enEntrada = /^\/panel(\/|\/index(\.html)?)?$/.test(location.pathname);
     if (r.status === 401 && ruta !== "entrar" && ruta !== "clave" && !enEntrada) {
       location.href = "/panel/";
       throw new Error("Sesión cerrada");
@@ -32,7 +32,8 @@ const Panel = (() => {
     } catch {
       return null;
     }
-    if (yo.debe_cambiar && !location.pathname.endsWith("/clave.html")) {
+    // Cloudflare Pages sirve /panel/clave.html como /panel/clave
+    if (yo.debe_cambiar && !/\/clave(\.html)?$/.test(location.pathname)) {
       location.href = "/panel/clave.html";
       return null;
     }
