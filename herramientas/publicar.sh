@@ -13,5 +13,7 @@ git ls-files -z \
 git ls-files -z functions | tar --null -T - -cf - | tar -xf - -C "$D"
 sed 's/^pages_build_output_dir = .*/pages_build_output_dir = "public"/' wrangler.toml > "$D/wrangler.toml"
 echo "Archivos públicos: $(find "$D/public" -type f | wc -l)"
+# Primero la base de datos: el código nuevo puede necesitar columnas nuevas
+npx wrangler d1 migrations apply red-pcc-panel --remote
 cd "$D"
 npx wrangler pages deploy --project-name red-pcc-ohiggins --branch main --commit-dirty=true

@@ -4,20 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>Usuarios · Panel Red PCC</title>
+<title>Equipo y accesos · Panel Red PCC</title>
 <link rel="icon" href="/favicon.ico" sizes="any">
-<link rel="stylesheet" href="/panel/panel.css">
+<link rel="stylesheet" href="/panel/panel.css?v=2">
 </head>
 <body>
 <header class="barra"><div class="barra-in"><a class="marca" href="/panel/"><img src="/wp-content/uploads/2024/10/cropped-Territorio-Digital-logo.webp" alt="">Panel Red PCC</a><nav></nav></div></header>
 <main>
-  <h1>Usuarios</h1>
-  <p class="sub">Crea un usuario por agrupación y mándale los datos por WhatsApp. La primera vez que entren tendrán que elegir su propia contraseña.</p>
+  <h1>Equipo y accesos</h1>
+  <p class="sub">Crea accesos para cada punto de cultura (pueden ser varias personas por punto) y para el equipo de coordinación. Mándales los datos por WhatsApp: la primera vez que entren tendrán que elegir su propia contraseña.</p>
   <div id="msg" class="msg oculto" role="status"></div>
   <div id="credencial" class="oculto"></div>
 
   <form class="tarjeta" id="form" novalidate>
-    <h2>Nuevo usuario</h2>
+    <h2>Nuevo acceso</h2>
     <label for="org">Agrupación</label>
     <select id="org"></select>
     <label for="usuario">Usuario</label>
@@ -25,35 +25,22 @@
     <p class="ayuda">Sin tildes ni espacios. Se sugiere solo al elegir la agrupación.</p>
     <label for="nombre">Nombre de la persona (opcional)</label>
     <input type="text" id="nombre" placeholder="ej.: Alondra">
-    <label><input type="checkbox" id="esadmin"> Es de la coordinación de la red (puede revisar y publicar todo)</label>
-    <p style="margin-top:16px"><button class="btn" type="submit">Crear usuario</button></p>
+    <label><input type="checkbox" id="esadmin"> Es del equipo de coordinación de la red (administra todos los puntos, sus accesos y publica)</label>
+    <p style="margin-top:16px"><button class="btn" type="submit">Crear acceso</button></p>
   </form>
 
   <section class="tarjeta">
-    <h2>Usuarios creados</h2>
+    <h2>Accesos creados</h2>
     <ul class="lista-usuarios" id="lista"><li>Cargando…</li></ul>
   </section>
 </main>
-<script src="/panel/panel.js"></script>
+<script src="/panel/panel.js?v=2"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 let yo;
 
-function mostrarCredencial(usuario, clave) {
-  const c = $("credencial");
-  const texto = `Hola! Estos son tus datos para editar la ficha en la página de la Red PCC:\n\nEntra a: ${location.origin}/panel/\nUsuario: ${usuario}\nContraseña temporal: ${clave}\n\nLa primera vez te va a pedir que elijas tu propia contraseña.`;
-  c.className = "tarjeta";
-  c.innerHTML = `<h2>Datos para mandar por WhatsApp</h2><p class="ayuda">Cópialos ahora: la contraseña temporal no se vuelve a mostrar.</p><div class="credencial" id="cred-texto"></div><button class="btn" type="button" id="copiar">Copiar mensaje</button>`;
-  $("cred-texto").textContent = texto;
-  $("copiar").onclick = async () => {
-    try {
-      await navigator.clipboard.writeText(texto);
-      $("copiar").textContent = "¡Copiado!";
-    } catch {
-      $("copiar").textContent = "Selecciónalo y cópialo a mano";
-    }
-  };
-  c.scrollIntoView({ behavior: "smooth" });
+function mostrarCredencial(usuario, clave, coordinacion) {
+  Panel.credencial($("credencial"), usuario, clave, coordinacion);
 }
 
 async function cargar() {
@@ -62,9 +49,9 @@ async function cargar() {
     .map(
       (u) => `<li>
         <div class="quien"><strong>${Panel.esc(u.usuario)}</strong>${u.nombre ? " · " + Panel.esc(u.nombre) : ""}
-          <small>${u.rol === "admin" ? "Coordinación de la red" : Panel.esc(u.organizacion || u.org)}${u.activo ? "" : " · desactivado"}${u.debe_cambiar && u.activo ? " · aún no entra por primera vez" : ""}</small></div>
-        <button class="btn sec chico" type="button" data-clave="${u.id}" data-usuario="${Panel.esc(u.usuario)}">Nueva contraseña</button>
-        ${u.id === yo.id ? "" : `<button class="btn ${u.activo ? "peligro" : "sec"} chico" type="button" data-activo="${u.activo ? 0 : 1}" data-id="${u.id}">${u.activo ? "Desactivar" : "Activar"}</button>`}
+          <small>${u.super ? "Soporte técnico" : u.rol === "admin" ? "Coordinación de la red" : Panel.esc(u.organizacion || u.org)}${u.activo ? "" : " · desactivado"}${!u.activo ? "" : u.debe_cambiar ? " · aún no entra por primera vez" : " · entró " + Panel.hace(u.ultimo_ingreso)}</small></div>
+        ${u.super && !yo.super ? "" : u.id === yo.id ? "" : `<button class="btn sec chico" type="button" data-clave="${u.id}" data-usuario="${Panel.esc(u.usuario)}" data-coord="${u.rol === "admin" ? 1 : ""}">Nueva contraseña</button>`}
+        ${u.id === yo.id || (u.super && !yo.super) ? "" : `<button class="btn ${u.activo ? "peligro" : "sec"} chico" type="button" data-activo="${u.activo ? 0 : 1}" data-id="${u.id}">${u.activo ? "Desactivar" : "Activar"}</button>`}
       </li>`,
     )
     .join("");
@@ -77,7 +64,7 @@ $("lista").addEventListener("click", async (e) => {
     if (b.dataset.clave) {
       if (!confirm(`¿Crear una contraseña nueva para ${b.dataset.usuario}? La anterior deja de funcionar.`)) return;
       const r = await Panel.api(`usuarios/${b.dataset.clave}/clave`, { metodo: "POST" });
-      mostrarCredencial(b.dataset.usuario, r.clave);
+      mostrarCredencial(b.dataset.usuario, r.clave, !!b.dataset.coord);
     } else if (b.dataset.activo !== undefined) {
       await Panel.api(`usuarios/${b.dataset.id}/activo`, { metodo: "POST", datos: { activo: b.dataset.activo === "1" } });
     }
@@ -104,7 +91,7 @@ $("form").addEventListener("submit", async (e) => {
       datos: { usuario: $("usuario").value, nombre: $("nombre").value, rol: $("esadmin").checked ? "admin" : "org", org: $("org").value },
     });
     Panel.mensaje($("msg"), "");
-    mostrarCredencial(r.usuario, r.clave);
+    mostrarCredencial(r.usuario, r.clave, $("esadmin").checked);
     $("form").reset();
     delete $("usuario").dataset.tocado;
     $("org").disabled = false;
@@ -121,6 +108,12 @@ Panel.iniciar({ soloAdmin: true, actual: "usuarios.html" }).then(async (u) => {
   const orgs = await Panel.api("organizaciones");
   orgs.sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
   $("org").innerHTML = `<option value="">Elige la agrupación…</option>` + orgs.map((o) => `<option value="${Panel.esc(o.slug)}">${Panel.esc(o.nombre)}</option>`).join("");
+  const pedida = new URLSearchParams(location.search).get("org");
+  if (pedida && orgs.some((o) => o.slug === pedida)) {
+    $("org").value = pedida;
+    $("org").dispatchEvent(new Event("change"));
+    $("nombre").focus();
+  }
   cargar();
 });
 </script>

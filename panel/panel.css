@@ -87,3 +87,36 @@ ul.cambios-lista{margin:6px 0 12px;padding-left:20px;font-size:15px}
 .credencial{background:#fff4c2;border-radius:12px;padding:16px;margin:14px 0;white-space:pre-wrap;font-size:15px}
 .orgs{columns:2 260px;padding-left:18px}
 .orgs li{margin-bottom:6px;break-inside:avoid}
+/* Contador en el menú */
+.contador{display:inline-block;min-width:20px;padding:0 6px;margin-left:4px;border-radius:999px;background:var(--fucsia);color:#fff;font-size:12px;font-weight:700;line-height:20px;text-align:center}
+/* Tablero de puntos */
+.resumen{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px}
+@media(max-width:700px){.resumen{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.dato{font:inherit;text-align:left;background:#fff;border:2px solid transparent;border-radius:12px;padding:12px 14px;cursor:pointer;box-shadow:0 1px 2px #0000000d;color:var(--tinta)}
+.dato:hover{border-color:var(--borde)}
+.dato.activo{border-color:var(--fucsia)}
+.dato strong{display:block;font-size:26px;line-height:1.1}
+.dato span{font-size:13px;color:var(--gris)}
+.filtros{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+.filtros .fila{gap:6px}
+.puntos{list-style:none;padding:0;margin:0}
+.punto h2{font-size:18px;margin:0}
+.punto-cabeza{display:flex;gap:12px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap}
+.punto-cabeza .fila{gap:6px}
+.punto-cuentas{border-top:1px solid var(--borde);margin-top:14px;padding-top:12px}
+.cuentas{list-style:none;padding:0;margin:0}
+.cuentas li{display:flex;gap:8px;justify-content:space-between;align-items:center;flex-wrap:wrap;padding:6px 0}
+.cuentas li+li{border-top:1px dashed var(--borde)}
+.cuentas .fila{gap:6px}
+.interruptor{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:14px;margin:0 0 0 auto;cursor:pointer}
+.interruptor input{width:18px;height:18px;accent-color:var(--fucsia)}
+.etiqueta.espera{background:#fff4c2;color:#5c4a00}
+.vacio{color:var(--gris)}
+/* Historial */
+.versiones,.registro{list-style:none;padding:0;margin:0}
+.versiones li{display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap;padding:12px 0;border-bottom:1px solid var(--borde)}
+.versiones li.actual{background:#f3fbf6;margin:0 -12px;padding:12px}
+.versiones small,.registro small{display:block;color:var(--gris)}
+.registro li{display:grid;grid-template-columns:150px 1fr;gap:12px;padding:10px 0;border-bottom:1px solid var(--borde);font-size:15px}
+.registro .cuando{color:var(--gris);font-size:13px}
+@media(max-width:600px){.registro li{grid-template-columns:1fr;gap:2px}}

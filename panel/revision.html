@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex, nofollow">
 <title>Revisar cambios · Panel Red PCC</title>
 <link rel="icon" href="/favicon.ico" sizes="any">
-<link rel="stylesheet" href="/panel/panel.css">
+<link rel="stylesheet" href="/panel/panel.css?v=2">
 </head>
 <body>
 <header class="barra"><div class="barra-in"><a class="marca" href="/panel/"><img src="/wp-content/uploads/2024/10/cropped-Territorio-Digital-logo.webp" alt="">Panel Red PCC</a><nav></nav></div></header>
@@ -16,7 +16,7 @@
   <div id="msg" class="msg oculto" role="status"></div>
   <div id="lista"><p class="ayuda">Cargando…</p></div>
 </main>
-<script src="/panel/panel.js"></script>
+<script src="/panel/panel.js?v=2"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 const NOMBRES = { instagram: "Instagram", facebook: "Facebook", youtube: "YouTube", tiktok: "TikTok", spotify: "Spotify", whatsapp: "WhatsApp", web: "Sitio web" };
@@ -101,7 +101,12 @@ $("lista").addEventListener("click", async (e) => {
   }
 });
 
-Panel.iniciar({ soloAdmin: true, actual: "revision.html" }).then((yo) => yo && cargar());
+Panel.iniciar({ soloAdmin: true, actual: "revision.html" }).then(async (yo) => {
+  if (!yo) return;
+  await cargar();
+  const destino = location.hash && document.getElementById(location.hash.slice(1));
+  if (destino) destino.scrollIntoView({ block: "start" });
+});
 </script>
 </body>
 </html>

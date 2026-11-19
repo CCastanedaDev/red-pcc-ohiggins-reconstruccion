@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex, nofollow">
 <title>Contraseña · Panel Red PCC</title>
 <link rel="icon" href="/favicon.ico" sizes="any">
-<link rel="stylesheet" href="/panel/panel.css">
+<link rel="stylesheet" href="/panel/panel.css?v=2">
 </head>
 <body>
 <header class="barra"><div class="barra-in"><a class="marca" href="/panel/"><img src="/wp-content/uploads/2024/10/cropped-Territorio-Digital-logo.webp" alt="">Panel Red PCC</a><nav></nav></div></header>
@@ -24,7 +24,7 @@
     <p style="margin-top:20px"><button class="btn" type="submit" id="boton">Guardar contraseña</button></p>
   </form>
 </main>
-<script src="/panel/panel.js"></script>
+<script src="/panel/panel.js?v=2"></script>
 <script>
 let yo;
 Panel.iniciar({ actual: "clave.html" }).then((u) => {
@@ -45,7 +45,7 @@ document.getElementById("form").addEventListener("submit", async (e) => {
   try {
     await Panel.api("clave", { metodo: "POST", datos: { actual: actual.value, nueva: nueva.value } });
     Panel.mensaje(msg, "Listo, tu contraseña quedó cambiada.", "ok");
-    setTimeout(() => (location.href = yo && yo.rol === "admin" ? "/panel/revision.html" : "/panel/ficha.html"), 1200);
+    setTimeout(() => (location.href = yo && yo.rol === "admin" ? "/panel/puntos.html" : "/panel/ficha.html"), 1200);
   } catch (err) {
     Panel.mensaje(msg, err.message, "error");
     boton.disabled = false;

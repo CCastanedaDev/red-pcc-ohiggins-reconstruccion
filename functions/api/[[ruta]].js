@@ -26,7 +26,11 @@ export async function onRequest(context) {
     const yo = await usuarioActual(env, request);
     if (!yo) return error("Tienes que iniciar sesión", 401);
 
-    if (ruta === "yo") return json({ usuario: publico(yo), organizacion: yo.org ? FICHAS[yo.org]?.nombre : null });
+    if (ruta === "yo") {
+      let pendientes = 0;
+      if (yo.rol === "admin") ({ n: pendientes } = await env.DB.prepare("SELECT COUNT(*) n FROM cambios WHERE estado = 'pendiente'").first());
+      return json({ usuario: publico(yo), organizacion: yo.org ? FICHAS[yo.org]?.nombre : null, pendientes });
+    }
     if (ruta === "clave" && metodo === "POST") return await cambiarClave(request, env, yo);
     if (yo.debe_cambiar) return error("Primero tienes que cambiar tu contraseña", 403);
 
@@ -41,9 +45,15 @@ export async function onRequest(context) {
     if ((m = ruta.match(/^cambios\/(\d+)\/(aprobar|rechazar)$/)) && metodo === "POST")
       return await revisar(request, env, yo, Number(m[1]), m[2]);
     if (ruta === "usuarios" && metodo === "GET") return await listarUsuarios(env);
-    if (ruta === "usuarios" && metodo === "POST") return await crearUsuario(request, env);
+    if (ruta === "usuarios" && metodo === "POST") return await crearUsuario(request, env, yo);
     if ((m = ruta.match(/^usuarios\/(\d+)\/(clave|activo)$/)) && metodo === "POST")
       return await editarUsuario(request, env, yo, Number(m[1]), m[2]);
+    if (ruta === "puntos" && metodo === "GET") return await listarPuntos(env);
+    if ((m = ruta.match(/^puntos\/([a-z0-9-]+)\/(confianza|original)$/)) && metodo === "POST")
+      return await editarPunto(request, env, yo, m[1], m[2]);
+    if (ruta === "historial" && metodo === "GET") return await historial(request, env);
+    if ((m = ruta.match(/^historial\/(\d+)\/restaurar$/)) && metodo === "POST")
+      return await restaurar(env, yo, Number(m[1]));
 
     return error("No encontrado", 404);
   } catch (e) {
@@ -52,7 +62,17 @@ export async function onRequest(context) {
   }
 }
 
-const publico = (u) => ({ id: u.id, usuario: u.usuario, nombre: u.nombre, rol: u.rol, org: u.org, debe_cambiar: !!u.debe_cambiar });
+const publico = (u) => ({ id: u.id, usuario: u.usuario, nombre: u.nombre, rol: u.rol, org: u.org, debe_cambiar: !!u.debe_cambiar, super: !!u.super });
+
+/** Deja constancia de una acción en el historial (devuelve la sentencia para usarla en un batch). */
+function anotar(env, yo, org, accion, detalle = "") {
+  return env.DB.prepare("INSERT INTO registro (ts, usuario_id, org, accion, detalle) VALUES (?, ?, ?, ?, ?)")
+    .bind(ahora(), yo ? yo.id : null, org || null, accion, String(detalle).slice(0, 500));
+}
+
+async function esDeConfianza(env, slug) {
+  return !!(await env.DB.prepare("SELECT 1 FROM confianza WHERE org = ?").bind(slug).first());
+}
 
 async function leerJson(request) {
   try {
@@ -88,6 +108,7 @@ async function entrar(request, env) {
     env.DB.prepare("INSERT INTO sesiones (token_hash, usuario_id, expira) VALUES (?, ?, ?)").bind(await sha256(token), u.id, ahora() + SESION_DIAS * 86400),
     env.DB.prepare("DELETE FROM sesiones WHERE expira < ?").bind(ahora()),
     env.DB.prepare("DELETE FROM intentos WHERE usuario = ?").bind(nombre),
+    env.DB.prepare("UPDATE usuarios SET ultimo_ingreso = ? WHERE id = ?").bind(ahora(), u.id),
   ]);
   return json({ usuario: publico(u) }, 200, { "set-cookie": cookieSesion(token, request) });
 }
@@ -127,6 +148,7 @@ async function verFicha(request, env, yo) {
     vigente: await fichaVigente(env, slug),
     pendiente: pendiente ? { id: pendiente.id, datos: JSON.parse(pendiente.datos), creado: pendiente.creado } : null,
     ultimo,
+    confianza: await esDeConfianza(env, slug),
   });
 }
 
@@ -139,13 +161,14 @@ async function guardarFicha(request, env, yo) {
   const t = ahora();
   const texto = JSON.stringify(v.datos);
 
-  if (yo.rol === "admin") {
-    // La red publica directo
+  if (yo.rol === "admin" || (await esDeConfianza(env, slug))) {
+    // La red y los puntos de confianza publican directo
     const r = await env.DB.prepare("INSERT INTO cambios (org, usuario_id, datos, estado, creado, revisado, revisor_id) VALUES (?, ?, ?, 'aprobado', ?, ?, ?) RETURNING id")
       .bind(slug, yo.id, texto, t, t, yo.id).first();
     await env.DB.batch([
       env.DB.prepare("UPDATE cambios SET estado = 'reemplazado' WHERE org = ? AND estado = 'pendiente'").bind(slug),
       publicar(env, slug, texto, r.id),
+      anotar(env, yo, slug, "publico", `Versión #${r.id}`),
     ]);
     return json({ ok: true, publicado: true });
   }
@@ -153,6 +176,7 @@ async function guardarFicha(request, env, yo) {
   await env.DB.batch([
     env.DB.prepare("UPDATE cambios SET estado = 'reemplazado' WHERE org = ? AND estado = 'pendiente'").bind(slug),
     env.DB.prepare("INSERT INTO cambios (org, usuario_id, datos, creado) VALUES (?, ?, ?, ?)").bind(slug, yo.id, texto, t),
+    anotar(env, yo, slug, "envio", "Cambios enviados a revisión"),
   ]);
   return json({ ok: true, publicado: false });
 }
@@ -227,6 +251,7 @@ async function revisar(request, env, yo, id, accion) {
       .bind(estado, String(comentario).slice(0, 1000), t, yo.id, id),
   ];
   if (estado === "aprobado") pasos.push(publicar(env, c.org, c.datos, id));
+  pasos.push(anotar(env, yo, c.org, estado === "aprobado" ? "aprobo" : "rechazo", `Versión #${id}${comentario ? " · " + comentario : ""}`));
   await env.DB.batch(pasos);
   return json({ ok: true, estado });
 }
@@ -234,11 +259,11 @@ async function revisar(request, env, yo, id, accion) {
 /* ---------- Usuarios (red) ---------- */
 
 async function listarUsuarios(env) {
-  const { results } = await env.DB.prepare("SELECT id, usuario, nombre, rol, org, activo, debe_cambiar, creado FROM usuarios ORDER BY rol, usuario").all();
+  const { results } = await env.DB.prepare("SELECT id, usuario, nombre, rol, org, activo, debe_cambiar, super, creado, ultimo_ingreso FROM usuarios ORDER BY super DESC, rol, usuario").all();
   return json(results.map((u) => ({ ...u, organizacion: u.org ? FICHAS[u.org]?.nombre : null })));
 }
 
-async function crearUsuario(request, env) {
+async function crearUsuario(request, env, yo) {
   const d = await leerJson(request);
   const usuario = String(d.usuario || "").trim().toLowerCase();
   if (!/^[a-z0-9._-]{3,40}$/.test(usuario)) return error("El usuario solo puede tener letras sin tilde, números, punto o guion (3 a 40)");
@@ -249,21 +274,25 @@ async function crearUsuario(request, env) {
   if (existe) return error("Ese usuario ya existe");
   const clave = claveTemporal();
   const h = await hashClave(clave);
-  await env.DB.prepare("INSERT INTO usuarios (usuario, nombre, rol, org, hash, sal, creado) VALUES (?, ?, ?, ?, ?, ?, ?)")
-    .bind(usuario, String(d.nombre || "").trim().slice(0, 80), rol, org, h.hash, h.sal, ahora())
-    .run();
+  await env.DB.batch([
+    env.DB.prepare("INSERT INTO usuarios (usuario, nombre, rol, org, hash, sal, creado) VALUES (?, ?, ?, ?, ?, ?, ?)")
+      .bind(usuario, String(d.nombre || "").trim().slice(0, 80), rol, org, h.hash, h.sal, ahora()),
+    anotar(env, yo, org, "acceso", rol === "admin" ? `Cuenta de coordinación «${usuario}»` : `Acceso «${usuario}»`),
+  ]);
   return json({ ok: true, usuario, clave });
 }
 
 async function editarUsuario(request, env, yo, id, accion) {
-  const u = await env.DB.prepare("SELECT id FROM usuarios WHERE id = ?").bind(id).first();
+  const u = await env.DB.prepare("SELECT id, usuario, org, super FROM usuarios WHERE id = ?").bind(id).first();
   if (!u) return error("Usuario no encontrado", 404);
+  if (u.super && !yo.super) return error("Esta cuenta es de soporte técnico y no se puede modificar desde aquí", 403);
   if (accion === "clave") {
     const clave = claveTemporal();
     const h = await hashClave(clave);
     await env.DB.batch([
       env.DB.prepare("UPDATE usuarios SET hash = ?, sal = ?, debe_cambiar = 1 WHERE id = ?").bind(h.hash, h.sal, id),
       env.DB.prepare("DELETE FROM sesiones WHERE usuario_id = ?").bind(id),
+      anotar(env, yo, u.org, "clave", `Contraseña nueva para «${u.usuario}»`),
     ]);
     return json({ ok: true, clave });
   }
@@ -271,6 +300,105 @@ async function editarUsuario(request, env, yo, id, accion) {
   const { activo } = await leerJson(request);
   const pasos = [env.DB.prepare("UPDATE usuarios SET activo = ? WHERE id = ?").bind(activo ? 1 : 0, id)];
   if (!activo) pasos.push(env.DB.prepare("DELETE FROM sesiones WHERE usuario_id = ?").bind(id));
+  pasos.push(anotar(env, yo, u.org, activo ? "activo" : "desactivo", `«${u.usuario}»`));
   await env.DB.batch(pasos);
+  return json({ ok: true });
+}
+
+/* ---------- Puntos de cultura (red) ---------- */
+
+async function listarPuntos(env) {
+  const [us, pend, pub, conf, ult] = await env.DB.batch([
+    env.DB.prepare("SELECT id, usuario, nombre, org, activo, debe_cambiar, ultimo_ingreso FROM usuarios WHERE rol = 'org' ORDER BY usuario"),
+    env.DB.prepare("SELECT org, MAX(id) id, MAX(creado) creado FROM cambios WHERE estado = 'pendiente' GROUP BY org"),
+    env.DB.prepare("SELECT org, actualizado FROM publicadas"),
+    env.DB.prepare("SELECT org FROM confianza"),
+    env.DB.prepare("SELECT org, MAX(ts) ts FROM registro WHERE org IS NOT NULL GROUP BY org"),
+  ]);
+  const por = (r) => Object.fromEntries(r.results.map((x) => [x.org, x]));
+  const P = por(pend), U = por(pub), C = por(conf), L = por(ult);
+  return json(
+    Object.values(FICHAS).map((f) => ({
+      slug: f.slug,
+      nombre: f.nombre,
+      comuna: f.comuna,
+      cuentas: us.results.filter((u) => u.org === f.slug),
+      pendiente: P[f.slug] ? { id: P[f.slug].id, creado: P[f.slug].creado } : null,
+      editada: U[f.slug] ? U[f.slug].actualizado : null,
+      confianza: !!C[f.slug],
+      actividad: L[f.slug] ? L[f.slug].ts : null,
+    })),
+  );
+}
+
+async function editarPunto(request, env, yo, slug, accion) {
+  if (!FICHAS[slug]) return error("Ficha no encontrada", 404);
+  if (accion === "confianza") {
+    const { confianza } = await leerJson(request);
+    await env.DB.batch([
+      confianza
+        ? env.DB.prepare("INSERT OR IGNORE INTO confianza (org, desde, usuario_id) VALUES (?, ?, ?)").bind(slug, ahora(), yo.id)
+        : env.DB.prepare("DELETE FROM confianza WHERE org = ?").bind(slug),
+      anotar(env, yo, slug, confianza ? "confianza" : "sin-confianza", confianza ? "Publica sin revisión" : "Sus cambios vuelven a pasar por revisión"),
+    ]);
+    return json({ ok: true });
+  }
+  // Volver a la ficha original (la del sitio estático)
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM publicadas WHERE org = ?").bind(slug),
+    anotar(env, yo, slug, "original", "Se volvió a la ficha original del sitio"),
+  ]);
+  return json({ ok: true });
+}
+
+/* ---------- Historial (red) ---------- */
+
+async function historial(request, env) {
+  const slug = new URL(request.url).searchParams.get("org");
+  if (slug && !FICHAS[slug]) return error("Ficha no encontrada", 404);
+  const nombreDe = (u) => u.nombre || u.usuario || "—";
+  const consulta = env.DB.prepare(
+    `SELECT r.id, r.ts, r.org, r.accion, r.detalle, u.usuario, u.nombre
+       FROM registro r LEFT JOIN usuarios u ON u.id = r.usuario_id
+      ${slug ? "WHERE r.org = ?" : ""} ORDER BY r.ts DESC, r.id DESC LIMIT 200`,
+  );
+  const reg = await (slug ? consulta.bind(slug) : consulta).all();
+  const salida = {
+    registro: reg.results.map((r) => ({
+      id: r.id, ts: r.ts, org: r.org, nombreOrg: r.org ? FICHAS[r.org]?.nombre || r.org : null,
+      accion: r.accion, detalle: r.detalle, quien: nombreDe(r),
+    })),
+  };
+  if (slug) {
+    const v = await env.DB.prepare(
+      `SELECT c.id, c.creado, c.revisado, c.comentario, a.usuario, a.nombre, r.usuario r_usuario, r.nombre r_nombre
+         FROM cambios c JOIN usuarios a ON a.id = c.usuario_id LEFT JOIN usuarios r ON r.id = c.revisor_id
+        WHERE c.org = ? AND c.estado = 'aprobado' ORDER BY c.id DESC LIMIT 50`,
+    ).bind(slug).all();
+    const actual = await env.DB.prepare("SELECT cambio_id FROM publicadas WHERE org = ?").bind(slug).first();
+    salida.ficha = { slug, nombre: FICHAS[slug].nombre, url: `/PCC/${slug}/` };
+    salida.actual = actual ? actual.cambio_id : null;
+    salida.versiones = v.results.map((c) => ({
+      id: c.id,
+      publicado: c.revisado || c.creado,
+      autor: nombreDe(c),
+      revisor: c.r_usuario ? nombreDe({ usuario: c.r_usuario, nombre: c.r_nombre }) : null,
+      nota: c.comentario,
+    }));
+  }
+  return json(salida);
+}
+
+async function restaurar(env, yo, id) {
+  const c = await env.DB.prepare("SELECT org, datos FROM cambios WHERE id = ? AND estado = 'aprobado'").bind(id).first();
+  if (!c) return error("Esa versión no existe", 404);
+  const t = ahora();
+  const r = await env.DB.prepare(
+    "INSERT INTO cambios (org, usuario_id, datos, estado, comentario, creado, revisado, revisor_id) VALUES (?, ?, ?, 'aprobado', ?, ?, ?, ?) RETURNING id",
+  ).bind(c.org, yo.id, c.datos, `Restaurada desde la versión #${id}`, t, t, yo.id).first();
+  await env.DB.batch([
+    publicar(env, c.org, c.datos, r.id),
+    anotar(env, yo, c.org, "restauro", `Volvió a la versión #${id}`),
+  ]);
   return json({ ok: true });
 }

@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Historial · Panel Red PCC</title>
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="stylesheet" href="/panel/panel.css?v=2">
+</head>
+<body>
+<header class="barra"><div class="barra-in"><a class="marca" href="/panel/"><img src="/wp-content/uploads/2024/10/cropped-Territorio-Digital-logo.webp" alt="">Panel Red PCC</a><nav></nav></div></header>
+<main>
+  <p class="sub oculto" id="volver" style="margin:0"><a href="/panel/historial.html">← Todo el historial</a></p>
+  <h1 id="titulo">Historial</h1>
+  <p class="sub" id="bajada">Todo lo que se ha hecho en el panel: quién lo hizo y cuándo.</p>
+  <div id="msg" class="msg oculto" role="status"></div>
+
+  <section class="tarjeta oculto" id="versiones-caja">
+    <h2>Versiones publicadas</h2>
+    <p class="ayuda">Si algo se publicó mal, puedes volver a una versión anterior. Nada se borra: la versión de ahora también queda guardada.</p>
+    <ul class="versiones" id="versiones"></ul>
+    <div class="fila" style="margin-top:14px">
+      <button type="button" class="btn peligro chico" id="original">Volver a la ficha original</button>
+      <span class="ayuda" style="margin:0">Deja la ficha como estaba antes de que se editara en el panel.</span>
+    </div>
+  </section>
+
+  <section class="tarjeta">
+    <h2 id="titulo-registro">Actividad</h2>
+    <ul class="registro" id="registro"><li>Cargando…</li></ul>
+  </section>
+</main>
+<script src="/panel/panel.js?v=2"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const org = new URLSearchParams(location.search).get("org");
+const ACCIONES = {
+  envio: "envió cambios a revisión",
+  publico: "publicó cambios",
+  aprobo: "aprobó y publicó cambios",
+  rechazo: "no publicó cambios",
+  restauro: "volvió a una versión anterior",
+  original: "volvió a la ficha original",
+  acceso: "creó un acceso",
+  clave: "dio una contraseña nueva",
+  activo: "activó una cuenta",
+  desactivo: "desactivó una cuenta",
+  confianza: "activó la publicación sin revisión",
+  "sin-confianza": "quitó la publicación sin revisión",
+};
+
+async function cargar() {
+  const r = await Panel.api("historial" + (org ? "?org=" + encodeURIComponent(org) : ""));
+  if (org) {
+    document.title = "Historial de " + r.ficha.nombre + " · Panel Red PCC";
+    $("titulo").textContent = r.ficha.nombre;
+    $("bajada").innerHTML = `Versiones y actividad de esta ficha · <a href="/panel/ficha.html?org=${encodeURIComponent(org)}">Editar ficha</a> · <a href="${r.ficha.url}" target="_blank" rel="noopener">Ver en la página</a>`;
+    $("volver").classList.remove("oculto");
+    $("versiones-caja").classList.remove("oculto");
+    $("titulo-registro").textContent = "Actividad de la ficha";
+    const enc = encodeURIComponent(org);
+    $("versiones").innerHTML = r.versiones.length
+      ? r.versiones
+          .map(
+            (v) => `<li${v.id === r.actual ? ' class="actual"' : ""}>
+              <div><strong>Versión #${v.id}</strong> ${v.id === r.actual ? '<span class="etiqueta nueva">publicada ahora</span>' : ""}
+                <small>${Panel.fecha(v.publicado)} · hecha por ${Panel.esc(v.autor)}${v.revisor && v.revisor !== v.autor ? ", aprobada por " + Panel.esc(v.revisor) : ""}${v.nota ? " · " + Panel.esc(v.nota) : ""}</small></div>
+              <div class="fila">
+                <a class="btn sec chico" href="/PCC/${enc}/?vista=${v.id}" target="_blank" rel="noopener">Ver</a>
+                ${v.id === r.actual ? "" : `<button type="button" class="btn sec chico" data-restaurar="${v.id}">Volver a esta versión</button>`}
+              </div>
+            </li>`,
+          )
+          .join("")
+      : `<li class="ayuda">Esta ficha todavía no se ha editado desde el panel: se ve la versión original del sitio.</li>`;
+    $("original").classList.toggle("oculto", r.actual === null);
+  }
+  $("registro").innerHTML = r.registro.length
+    ? r.registro
+        .map(
+          (x) => `<li><span class="cuando">${Panel.fecha(x.ts)}</span>
+            <span><strong>${Panel.esc(x.quien)}</strong> ${ACCIONES[x.accion] || Panel.esc(x.accion)}${
+              !org && x.org ? ` en <a href="/panel/historial.html?org=${encodeURIComponent(x.org)}">${Panel.esc(x.nombreOrg)}</a>` : ""
+            }${x.detalle ? ` <small>${Panel.esc(x.detalle)}</small>` : ""}</span></li>`,
+        )
+        .join("")
+    : `<li class="ayuda">Todavía no hay actividad.</li>`;
+}
+
+document.addEventListener("click", async (ev) => {
+  const b = ev.target.closest("button");
+  if (!b) return;
+  try {
+    if (b.dataset.restaurar) {
+      if (!confirm(`¿Publicar de nuevo la versión #${b.dataset.restaurar}? La ficha va a quedar como estaba en esa versión.`)) return;
+      await Panel.api(`historial/${b.dataset.restaurar}/restaurar`, { metodo: "POST" });
+      Panel.mensaje($("msg"), `Listo, se publicó de nuevo la versión #${b.dataset.restaurar}.`, "ok");
+    } else if (b.id === "original") {
+      if (!confirm("¿Volver a la ficha original del sitio? Las versiones del panel siguen guardadas y puedes volver a publicarlas.")) return;
+      await Panel.api(`puntos/${encodeURIComponent(org)}/original`, { metodo: "POST" });
+      Panel.mensaje($("msg"), "Listo, la ficha volvió a la versión original del sitio.", "ok");
+    } else return;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    await cargar();
+  } catch (err) {
+    Panel.mensaje($("msg"), err.message, "error");
+  }
+});
+
+Panel.iniciar({ soloAdmin: true, actual: "historial.html" }).then((yo) => {
+  if (!yo) return;
+  cargar().catch((err) => Panel.mensaje($("msg"), err.message, "error"));
+});
+</script>
+</body>
+</html>

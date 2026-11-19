@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex, nofollow">
 <title>Panel · Red PCC O’Higgins</title>
 <link rel="icon" href="/favicon.ico" sizes="any">
-<link rel="stylesheet" href="/panel/panel.css">
+<link rel="stylesheet" href="/panel/panel.css?v=2">
 </head>
 <body>
 <main>
@@ -23,9 +23,9 @@
     <p class="ayuda" style="text-align:center;margin-top:16px">¿Olvidaste tu contraseña? Escríbele a la red y te mandan una nueva.</p>
   </form>
 </main>
-<script src="/panel/panel.js"></script>
+<script src="/panel/panel.js?v=2"></script>
 <script>
-const destino = (u) => u.debe_cambiar ? "/panel/clave.html" : u.rol === "admin" ? "/panel/revision.html" : "/panel/ficha.html";
+const destino = (u) => u.debe_cambiar ? "/panel/clave.html" : u.rol === "admin" ? "/panel/puntos.html" : "/panel/ficha.html";
 Panel.api("yo").then((r) => (location.href = destino(r.usuario))).catch(() => {});
 document.getElementById("form").addEventListener("submit", async (e) => {
   e.preventDefault();

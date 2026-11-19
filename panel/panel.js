@@ -26,9 +26,9 @@ const Panel = (() => {
 
   /** Comprueba la sesión y arma la barra superior. */
   async function iniciar({ soloAdmin = false, actual = "" } = {}) {
-    let yo;
+    let yo, pendientes = 0;
     try {
-      yo = (await api("yo")).usuario;
+      ({ usuario: yo, pendientes } = await api("yo"));
     } catch {
       return null;
     }
@@ -36,13 +36,19 @@ const Panel = (() => {
       location.href = "/panel/clave.html";
       return null;
     }
+    yo.pendientes = pendientes;
     if (soloAdmin && yo.rol !== "admin") {
       location.href = "/panel/ficha.html";
       return null;
     }
     const links =
       yo.rol === "admin"
-        ? [["revision.html", "Revisar cambios"], ["organizaciones.html", "Fichas"], ["usuarios.html", "Usuarios"]]
+        ? [
+            ["puntos.html", "Puntos de cultura"],
+            ["revision.html", "Revisar cambios" + (pendientes ? ` <span class="contador">${pendientes}</span>` : "")],
+            ["historial.html", "Historial"],
+            ["usuarios.html", "Equipo y accesos"],
+          ]
         : [["ficha.html", "Mi ficha"]];
     const nav = document.querySelector(".barra nav");
     if (nav) {
@@ -72,6 +78,17 @@ const Panel = (() => {
 
   function fecha(seg) {
     return new Date(seg * 1000).toLocaleString("es-CL", { dateStyle: "medium", timeStyle: "short" });
+  }
+
+  /** «hace 3 días», «hoy», etc. */
+  function hace(seg) {
+    if (!seg) return "nunca";
+    const d = Math.floor((Date.now() / 1000 - seg) / 86400);
+    if (d < 1) return "hoy";
+    if (d < 2) return "ayer";
+    if (d < 31) return `hace ${d} días`;
+    if (d < 365) return `hace ${Math.floor(d / 30)} ${Math.floor(d / 30) === 1 ? "mes" : "meses"}`;
+    return "hace más de un año";
   }
 
   /** Achica la foto en el navegador antes de subirla (máx. 1920 px, ~1,4 MB). */
@@ -114,5 +131,25 @@ const Panel = (() => {
     return r.src;
   }
 
-  return { api, iniciar, mensaje, esc, fecha, subirFoto };
+  /** Muestra los datos de acceso listos para mandar por WhatsApp (la contraseña no se vuelve a mostrar). */
+  function credencial(c, usuario, clave, coordinacion = false) {
+    const texto = coordinacion
+      ? `Hola! Estos son tus datos para administrar la página de la Red PCC:\n\nEntra a: ${location.origin}/panel/\nUsuario: ${usuario}\nContraseña temporal: ${clave}\n\nLa primera vez te va a pedir que elijas tu propia contraseña.`
+      : `Hola! Estos son tus datos para editar la ficha en la página de la Red PCC:\n\nEntra a: ${location.origin}/panel/\nUsuario: ${usuario}\nContraseña temporal: ${clave}\n\nLa primera vez te va a pedir que elijas tu propia contraseña.`;
+    c.className = "tarjeta";
+    c.innerHTML = `<h2>Datos para mandar por WhatsApp</h2><p class="ayuda">Cópialos ahora: la contraseña temporal no se vuelve a mostrar.</p><div class="credencial"></div><div class="fila"><button class="btn" type="button" data-copiar>Copiar mensaje</button><a class="btn sec" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(texto)}">Abrir WhatsApp</a></div>`;
+    c.querySelector(".credencial").textContent = texto;
+    const b = c.querySelector("[data-copiar]");
+    b.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(texto);
+        b.textContent = "¡Copiado!";
+      } catch {
+        b.textContent = "Selecciónalo y cópialo a mano";
+      }
+    };
+    c.scrollIntoView({ behavior: "smooth" });
+  }
+
+  return { api, iniciar, mensaje, esc, fecha, hace, subirFoto, credencial };
 })();

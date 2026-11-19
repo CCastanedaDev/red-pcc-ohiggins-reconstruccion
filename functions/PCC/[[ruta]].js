@@ -26,10 +26,12 @@ export async function onRequestGet(context) {
   if (vista && /^\d+$/.test(vista)) {
     const yo = await usuarioActual(env, request);
     if (yo && (yo.rol === "admin" || yo.org === slug)) {
-      const c = await env.DB.prepare("SELECT datos FROM cambios WHERE id = ? AND org = ?").bind(Number(vista), slug).first();
+      const c = await env.DB.prepare("SELECT datos, estado FROM cambios WHERE id = ? AND org = ?").bind(Number(vista), slug).first();
       if (c) {
         datos = JSON.parse(c.datos);
-        aviso = `<div class="aviso-vista"><strong>Vista previa:</strong> así se verá la ficha si se aprueba este cambio. Todavía no está publicada.</div>`;
+        aviso = c.estado === "pendiente"
+          ? `<div class="aviso-vista"><strong>Vista previa:</strong> así se verá la ficha si se aprueba este cambio. Todavía no está publicada.</div>`
+          : `<div class="aviso-vista"><strong>Versión #${Number(vista)}:</strong> así se veía la ficha con esta versión. Puede no ser la que está publicada ahora.</div>`;
       }
     }
   }

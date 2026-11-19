@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Puntos de cultura · Panel Red PCC</title>
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="stylesheet" href="/panel/panel.css?v=2">
+</head>
+<body>
+<header class="barra"><div class="barra-in"><a class="marca" href="/panel/"><img src="/wp-content/uploads/2024/10/cropped-Territorio-Digital-logo.webp" alt="">Panel Red PCC</a><nav></nav></div></header>
+<main>
+  <h1>Puntos de cultura</h1>
+  <p class="sub">Todas las organizaciones de la red, quién tiene acceso y qué falta revisar.</p>
+  <div id="msg" class="msg oculto" role="status"></div>
+  <div id="credencial" class="oculto"></div>
+
+  <div class="resumen" id="resumen"></div>
+
+  <div class="filtros">
+    <label for="buscar" class="oculto">Buscar</label>
+    <input type="text" id="buscar" placeholder="Buscar por nombre o comuna…" autocomplete="off">
+    <div class="fila" id="filtros" role="group" aria-label="Filtrar"></div>
+  </div>
+
+  <ul class="puntos" id="lista"><li class="tarjeta">Cargando…</li></ul>
+</main>
+<script src="/panel/panel.js?v=2"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+let puntos = [];
+let filtro = "todos";
+
+const FILTROS = [
+  ["todos", "Todos"],
+  ["revisar", "Por revisar"],
+  ["sin-acceso", "Sin acceso"],
+  ["sin-entrar", "Aún no entran"],
+  ["activos", "Con acceso activo"],
+];
+
+function estadoDe(p) {
+  const activas = p.cuentas.filter((c) => c.activo);
+  return {
+    revisar: !!p.pendiente,
+    sinAcceso: activas.length === 0,
+    sinEntrar: activas.length > 0 && activas.every((c) => c.debe_cambiar),
+    activos: activas.some((c) => !c.debe_cambiar),
+  };
+}
+
+function cumple(p) {
+  const e = estadoDe(p);
+  if (filtro === "revisar") return e.revisar;
+  if (filtro === "sin-acceso") return e.sinAcceso;
+  if (filtro === "sin-entrar") return e.sinEntrar;
+  if (filtro === "activos") return e.activos;
+  return true;
+}
+
+function dibujarResumen() {
+  const n = (f) => puntos.filter((p) => f(estadoDe(p))).length;
+  const datos = [
+    ["revisar", n((e) => e.revisar), "con cambios por revisar"],
+    ["activos", n((e) => e.activos), "con acceso activo"],
+    ["sin-entrar", n((e) => e.sinEntrar), "invitados que aún no entran"],
+    ["sin-acceso", n((e) => e.sinAcceso), "sin acceso todavía"],
+  ];
+  $("resumen").innerHTML = datos
+    .map(([f, num, txt]) => `<button type="button" class="dato${f === filtro ? " activo" : ""}" data-filtro="${f}"><strong>${num}</strong><span>${txt}</span></button>`)
+    .join("");
+  $("filtros").innerHTML = FILTROS.map(([f, t]) => `<button type="button" class="btn chico ${f === filtro ? "" : "sec"}" data-filtro="${f}" aria-pressed="${f === filtro}">${t}</button>`).join("");
+}
+
+function cuentaHtml(c) {
+  let estado;
+  if (!c.activo) estado = '<span class="etiqueta quitada">desactivada</span>';
+  else if (c.debe_cambiar) estado = '<span class="etiqueta">aún no entra</span>';
+  else estado = `<span class="etiqueta nueva">entró ${Panel.hace(c.ultimo_ingreso)}</span>`;
+  return `<li><span><strong>${Panel.esc(c.usuario)}</strong>${c.nombre ? " · " + Panel.esc(c.nombre) : ""} ${estado}</span>
+    <span class="fila">
+      <button type="button" class="btn sec chico" data-clave="${c.id}" data-usuario="${Panel.esc(c.usuario)}">Nueva contraseña</button>
+      <button type="button" class="btn ${c.activo ? "peligro" : "sec"} chico" data-activo="${c.activo ? 0 : 1}" data-id="${c.id}" data-usuario="${Panel.esc(c.usuario)}">${c.activo ? "Desactivar" : "Activar"}</button>
+    </span></li>`;
+}
+
+function dibujar() {
+  dibujarResumen();
+  const q = $("buscar").value.trim().toLowerCase();
+  const lista = puntos.filter((p) => cumple(p) && (!q || (p.nombre + " " + (p.comuna || "")).toLowerCase().includes(q)));
+  if (!lista.length) {
+    $("lista").innerHTML = `<li class="tarjeta vacio">No hay puntos de cultura con ese filtro.</li>`;
+    return;
+  }
+  $("lista").innerHTML = lista
+    .map((p) => {
+      const e = estadoDe(p);
+      const enc = encodeURIComponent(p.slug);
+      const avisos = [];
+      if (p.pendiente) avisos.push(`<span class="etiqueta espera">Cambios por revisar · ${Panel.hace(p.pendiente.creado)}</span>`);
+      if (p.editada) avisos.push(`<span class="etiqueta">Ficha editada ${Panel.hace(p.editada)}</span>`);
+      if (p.confianza) avisos.push(`<span class="etiqueta nueva">Publica sin revisión</span>`);
+      return `<li class="tarjeta punto" id="p-${p.slug}">
+        <div class="punto-cabeza">
+          <div><h2>${Panel.esc(p.nombre)}</h2><p class="ayuda" style="margin:0">${Panel.esc(p.comuna || "")}</p></div>
+          <div class="fila">
+            ${p.pendiente ? `<a class="btn chico" href="/panel/revision.html#c${p.pendiente.id}">Revisar cambios</a>` : ""}
+            <a class="btn sec chico" href="/panel/ficha.html?org=${enc}">Editar ficha</a>
+            <a class="btn sec chico" href="/PCC/${enc}/" target="_blank" rel="noopener">Ver</a>
+            <a class="btn sec chico" href="/panel/historial.html?org=${enc}">Historial</a>
+          </div>
+        </div>
+        ${avisos.length ? `<p class="fila" style="margin:10px 0 0;gap:6px">${avisos.join("")}</p>` : ""}
+        <div class="punto-cuentas">
+          ${p.cuentas.length ? `<ul class="cuentas">${p.cuentas.map(cuentaHtml).join("")}</ul>` : `<p class="ayuda" style="margin:0">${e.sinAcceso ? "Todavía nadie de esta organización tiene acceso." : ""}</p>`}
+          <div class="fila" style="margin-top:10px">
+            <a class="btn ${p.cuentas.length ? "sec" : ""} chico" href="/panel/usuarios.html?org=${enc}">${p.cuentas.length ? "+ Otra persona" : "Crear acceso"}</a>
+            <label class="interruptor"><input type="checkbox" data-confianza="${p.slug}" ${p.confianza ? "checked" : ""}> Publica sin revisión</label>
+          </div>
+        </div>
+      </li>`;
+    })
+    .join("");
+}
+
+async function cargar() {
+  puntos = await Panel.api("puntos");
+  puntos.sort((a, b) => !!b.pendiente - !!a.pendiente || a.nombre.localeCompare(b.nombre, "es"));
+  dibujar();
+}
+
+document.addEventListener("click", async (ev) => {
+  const b = ev.target.closest("button");
+  if (!b) return;
+  if (b.dataset.filtro) {
+    filtro = b.dataset.filtro === filtro && b.classList.contains("dato") ? "todos" : b.dataset.filtro;
+    return dibujar();
+  }
+  try {
+    if (b.dataset.clave) {
+      if (!confirm(`¿Crear una contraseña nueva para ${b.dataset.usuario}? La anterior deja de funcionar.`)) return;
+      const r = await Panel.api(`usuarios/${b.dataset.clave}/clave`, { metodo: "POST" });
+      Panel.credencial($("credencial"), b.dataset.usuario, r.clave);
+    } else if (b.dataset.activo !== undefined) {
+      const activar = b.dataset.activo === "1";
+      if (!activar && !confirm(`¿Desactivar a ${b.dataset.usuario}? No podrá entrar al panel hasta que la vuelvas a activar.`)) return;
+      await Panel.api(`usuarios/${b.dataset.id}/activo`, { metodo: "POST", datos: { activo: activar } });
+      await cargar();
+    }
+  } catch (err) {
+    Panel.mensaje($("msg"), err.message, "error");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+});
+
+document.addEventListener("change", async (ev) => {
+  const c = ev.target.closest("[data-confianza]");
+  if (!c) return;
+  const nombre = puntos.find((p) => p.slug === c.dataset.confianza)?.nombre;
+  const msg = c.checked
+    ? `¿Dejar que ${nombre} publique sus cambios directo, sin pasar por revisión?`
+    : `¿Volver a revisar los cambios de ${nombre} antes de publicarlos?`;
+  if (!confirm(msg)) {
+    c.checked = !c.checked;
+    return;
+  }
+  try {
+    await Panel.api(`puntos/${encodeURIComponent(c.dataset.confianza)}/confianza`, { metodo: "POST", datos: { confianza: c.checked } });
+    Panel.mensaje($("msg"), c.checked ? `${nombre} ahora publica sin revisión.` : `Los cambios de ${nombre} vuelven a pasar por revisión.`, "ok");
+    await cargar();
+  } catch (err) {
+    c.checked = !c.checked;
+    Panel.mensaje($("msg"), err.message, "error");
+  }
+});
+
+$("buscar").addEventListener("input", dibujar);
+
+Panel.iniciar({ soloAdmin: true, actual: "puntos.html" }).then((yo) => {
+  if (!yo) return;
+  cargar().catch((err) => Panel.mensaje($("msg"), err.message, "error"));
+});
+</script>
+</body>
+</html>

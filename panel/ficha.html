@@ -6,14 +6,14 @@
 <meta name="robots" content="noindex, nofollow">
 <title>Mi ficha · Panel Red PCC</title>
 <link rel="icon" href="/favicon.ico" sizes="any">
-<link rel="stylesheet" href="/panel/panel.css">
+<link rel="stylesheet" href="/panel/panel.css?v=2">
 </head>
 <body>
 <header class="barra"><div class="barra-in"><a class="marca" href="/panel/"><img src="/wp-content/uploads/2024/10/cropped-Territorio-Digital-logo.webp" alt="">Panel Red PCC</a><nav></nav></div></header>
 <main>
   <p class="sub" style="margin:0">Ficha de</p>
   <h1 id="nombre">Cargando…</h1>
-  <p class="sub"><span id="comuna"></span> · <a id="ver" href="#" target="_blank" rel="noopener">Ver cómo se ve hoy en la página</a></p>
+  <p class="sub"><span id="comuna"></span> · <a id="ver" href="#" target="_blank" rel="noopener">Ver cómo se ve hoy en la página</a><span id="enlace-historial" class="oculto"> · <a href="#">Historial y versiones</a></span></p>
   <div id="estado" class="msg oculto" role="status"></div>
 
   <section class="tarjeta">
@@ -74,7 +74,7 @@
   </div>
 </div>
 
-<script src="/panel/panel.js"></script>
+<script src="/panel/panel.js?v=2"></script>
 <script>
 const REDES = [
   ["instagram", "Instagram", "instagram.com/su_cuenta"],
@@ -88,7 +88,7 @@ const REDES = [
 const $ = (id) => document.getElementById(id);
 const org = new URLSearchParams(location.search).get("org");
 const q = org ? "?org=" + encodeURIComponent(org) : "";
-let yo, datos, sucio = false;
+let yo, datos, sucio = false, directo = false;
 
 function marcarCambio() {
   sucio = true;
@@ -238,7 +238,7 @@ $("enviar").addEventListener("click", async () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
   b.disabled = false;
-  b.textContent = yo.rol === "admin" ? "Publicar cambios" : "Enviar a revisión";
+  b.textContent = directo ? "Publicar cambios" : "Enviar a revisión";
 });
 
 window.addEventListener("beforeunload", (e) => {
@@ -249,9 +249,9 @@ window.addEventListener("beforeunload", (e) => {
 });
 
 (async () => {
-  yo = await Panel.iniciar({ actual: org ? "organizaciones.html" : "ficha.html" });
+  yo = await Panel.iniciar({ actual: org ? "puntos.html" : "ficha.html" });
   if (!yo) return;
-  if (yo.rol === "admin" && !org) return (location.href = "/panel/organizaciones.html");
+  if (yo.rol === "admin" && !org) return (location.href = "/panel/puntos.html");
   let r;
   try {
     r = await Panel.api("ficha" + q);
@@ -267,10 +267,15 @@ window.addEventListener("beforeunload", (e) => {
   datos.galeria = datos.galeria || [];
   datos.redes = datos.redes || {};
 
+  directo = yo.rol === "admin" || r.confianza;
   if (yo.rol === "admin") {
-    $("enviar").textContent = "Publicar cambios";
     $("pie-estado").textContent = "Como red, tus cambios se publican de inmediato.";
+    $("enlace-historial").classList.remove("oculto");
+    $("enlace-historial").querySelector("a").href = "/panel/historial.html?org=" + encodeURIComponent(org);
+  } else if (r.confianza) {
+    $("pie-estado").textContent = "La red les dio publicación directa: sus cambios se publican de inmediato.";
   }
+  if (directo) $("enviar").textContent = "Publicar cambios";
   const estado = $("estado");
   if (r.pendiente) {
     Panel.mensaje(estado, `Tienes cambios enviados el ${Panel.fecha(r.pendiente.creado)} que la red todavía no revisa. Estás viendo esa versión: si la editas y envías de nuevo, se reemplaza.`, "espera");
@@ -279,7 +284,7 @@ window.addEventListener("beforeunload", (e) => {
   } else if (r.ultimo && r.ultimo.estado === "aprobado") {
     Panel.mensaje(estado, `Tus últimos cambios se publicaron el ${Panel.fecha(r.ultimo.revisado)}`, "ok");
   } else if (yo.rol !== "admin") {
-    Panel.mensaje(estado, "Bienvenida/o. Esta es la información que hoy aparece en su ficha. Cambien lo que quieran y al final aprieten “Enviar a revisión”.", "info");
+    Panel.mensaje(estado, `Bienvenida/o. Esta es la información que hoy aparece en su ficha. Cambien lo que quieran y al final aprieten “${directo ? "Publicar cambios" : "Enviar a revisión"}”.`, "info");
   }
 
   $("resena").value = datos.resena || "";

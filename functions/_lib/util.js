@@ -76,7 +76,7 @@ export async function usuarioActual(env, request) {
   const token = leerCookie(request);
   if (!token || !/^[0-9a-f]{64}$/.test(token)) return null;
   const fila = await env.DB.prepare(
-    `SELECT u.id, u.usuario, u.nombre, u.rol, u.org, u.debe_cambiar
+    `SELECT u.id, u.usuario, u.nombre, u.rol, u.org, u.debe_cambiar, u.super
        FROM sesiones s JOIN usuarios u ON u.id = s.usuario_id
       WHERE s.token_hash = ? AND s.expira > ? AND u.activo = 1`,
   )
