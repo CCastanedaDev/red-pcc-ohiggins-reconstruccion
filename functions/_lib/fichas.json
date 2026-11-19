@@ -1,4 +1,17 @@
 {
+ "agrupacion-apo": {
+  "slug": "agrupacion-apo",
+  "nombre": "Agrupación Social y Cultural APO",
+  "comuna": "San Francisco de Mostazal",
+  "resena": "Ragintv Wigkül APO es una agrupación indígena de personas mapuche y aymara de Mostazal, con más de 10 años de camino colectivo en la reivindicación y defensa de los pueblos originarios y de los territorios. Trabaja por la revitalización del mapuzugun, promoviendo una educación intercultural y la salud de los pueblos indígenas, fortaleciendo y reivindicando su identidad a través de sus costumbres y tradiciones junto a la comunidad.",
+  "redes": {},
+  "logo": "",
+  "portada": "",
+  "galeria": [],
+  "plan": null,
+  "proyectos": [],
+  "noticias": []
+ },
  "agrupacion-cultural-semillas-de-pueblo-chico": {
   "slug": "agrupacion-cultural-semillas-de-pueblo-chico",
   "nombre": "Agrupación cultural Semillas de Pueblo Chico",
@@ -91,6 +104,19 @@
   "proyectos": [],
   "noticias": []
  },
+ "audiovisualistas-de-pichilemu": {
+  "slug": "audiovisualistas-de-pichilemu",
+  "nombre": "Agrupación Audiovisualistas de Pichilemu",
+  "comuna": "Pichilemu",
+  "resena": "Organización presente en la comuna de Pichilemu desde 2001, dedicada a la creación, difusión y formación audiovisual con enfoque comunitario. Promueve contenidos culturales locales, la participación ciudadana y el acceso inclusivo y pluralista a los medios de comunicación. Impulsa procesos formativos gratuitos y colaborativos, fomentando la autonomía creativa y la descentralización de la producción audiovisual en el territorio.",
+  "redes": {},
+  "logo": "",
+  "portada": "",
+  "galeria": [],
+  "plan": null,
+  "proyectos": [],
+  "noticias": []
+ },
  "biblioteca-cambalache": {
   "slug": "biblioteca-cambalache",
   "nombre": "Biblioteca Cambalache",
@@ -105,6 +131,19 @@
    "subtitulo": "«Bibliotecando 2026»",
    "texto": "El plan busca consolidar a la Biblioteca Comunitaria Cambalache como un espacio cultural de referencia territorial, fortaleciendo su sostenibilidad organizacional, programación de mediación lectora y articulación comunitaria. Asimismo, contempla itinerancias de promoción lectora, actividades artísticas y patrimoniales en establecimientos educacionales y la renovación de su identidad visual.\n\nFuente: Presentación del hito de firma de convenios de los Planes de Fortalecimiento de Puntos de Cultura Comunitaria 2026, región de O’Higgins. Ficha en construcción: la información y las fotografías se completarán con la organización."
   },
+  "proyectos": [],
+  "noticias": []
+ },
+ "bordadoras-de-pichilemu": {
+  "slug": "bordadoras-de-pichilemu",
+  "nombre": "Agrupación Cultural Bordadoras de Pichilemu",
+  "comuna": "Pichilemu",
+  "resena": "Grupo intergeneracional de mujeres habitantes de Pichilemu, Chile. Bordamos juntas por la memoria, la justicia, el medio ambiente y los derechos humanos, desde 2019. Realizamos acciones colectivas de bordado en distintos espacios de nuestra comuna. Nos entrelazamos porque unidas somos más fuertes, creamos arte y resistencia.",
+  "redes": {},
+  "logo": "",
+  "portada": "",
+  "galeria": [],
+  "plan": null,
   "proyectos": [],
   "noticias": []
  },
@@ -291,6 +330,19 @@
     "url": "/primer-encuentro-regional-de-puntos-de-cultura-comunitaria-de-ohiggins-2025/"
    }
   ],
+  "noticias": []
+ },
+ "colectivo-parque-koke": {
+  "slug": "colectivo-parque-koke",
+  "nombre": "Colectivo Parque Koke",
+  "comuna": "Rancagua",
+  "resena": "El Colectivo Ambiental Parque Koke es una agrupación comunitaria que busca cuidar, defender y preservar el principal pulmón verde de Rancagua.",
+  "redes": {},
+  "logo": "",
+  "portada": "",
+  "galeria": [],
+  "plan": null,
+  "proyectos": [],
   "noticias": []
  },
  "compania-de-teatro-la-maquinaria": {
@@ -493,56 +545,6 @@
   ],
   "noticias": []
  },
- "junta-de-vecinos-lo-miranda-centro": {
-  "slug": "junta-de-vecinos-lo-miranda-centro",
-  "nombre": "Junta de Vecinos Lo Miranda Centro",
-  "comuna": "Doñihue",
-  "resena": "Organización activa desde el año 1982, en la cual promovemos el desarrollo de la comunidad mediante acciones sociales y culturales.\n\nSin duda, no tenemos que hacer preguntas que no tengan respuesta. Debemos confiar en la perfección de la creación hasta el punto de creer que cualquier curiosidad que el orden de las cosas haya despertado en nuestra mente, el orden de las cosas puede satisfacerla. La condición de todo hombre es una solución en jeroglífico a las preguntas que él mismo se plantea.",
-  "redes": {
-   "instagram": "https://www.instagram.com/juntadevecinoslomirandacentro",
-   "facebook": "https://www.facebook.com/profile.php?id=100068996064884",
-   "web": "https://wa.me/56966010425"
-  },
-  "logo": "",
-  "portada": "/wp-content/uploads/drive-2024/lo-miranda-cerro.webp",
-  "galeria": [
-   {
-    "src": "/wp-content/uploads/drive-2024/lo-miranda-actividad-1.webp",
-    "texto": "Fotografía de actividades de la Junta de Vecinos Lo Miranda Centro"
-   },
-   {
-    "src": "/wp-content/uploads/drive-2024/lo-miranda-actividad-2.webp",
-    "texto": "Fotografía de actividades de la Junta de Vecinos Lo Miranda Centro"
-   },
-   {
-    "src": "/wp-content/uploads/drive-2024/lo-miranda-actividad-3.webp",
-    "texto": "Fotografía de actividades de la Junta de Vecinos Lo Miranda Centro"
-   },
-   {
-    "src": "/wp-content/uploads/drive-2024/lo-miranda-actividad-4.webp",
-    "texto": "Fotografía de actividades de la Junta de Vecinos Lo Miranda Centro"
-   },
-   {
-    "src": "/wp-content/uploads/drive-2024/lo-miranda-actividad-5.webp",
-    "texto": "Fotografía de actividades de la Junta de Vecinos Lo Miranda Centro"
-   },
-   {
-    "src": "/wp-content/uploads/drive-2024/lo-miranda-actividad-6.webp",
-    "texto": "Fotografía de actividades de la Junta de Vecinos Lo Miranda Centro"
-   },
-   {
-    "src": "/wp-content/uploads/drive-2024/lo-miranda-actividad-7.webp",
-    "texto": "Fotografía de actividades de la Junta de Vecinos Lo Miranda Centro"
-   },
-   {
-    "src": "/wp-content/uploads/drive-2024/lo-miranda-actividad-8.webp",
-    "texto": "Fotografía de actividades de la Junta de Vecinos Lo Miranda Centro"
-   }
-  ],
-  "plan": null,
-  "proyectos": [],
-  "noticias": []
- },
  "junta-de-vecinos-panquehue": {
   "slug": "junta-de-vecinos-panquehue",
   "nombre": "Junta de Vecinos de Panquehue",
@@ -675,6 +677,19 @@
   "proyectos": [],
   "noticias": []
  },
+ "linea-continua": {
+  "slug": "linea-continua",
+  "nombre": "Colectivo Artístico Cultural Línea Continua",
+  "comuna": "Rancagua",
+  "resena": "Colectivo con más de 11 años de trayectoria dedicado a llevar el arte circense, el teatro y la música en vivo a comunidades con menor acceso cultural. Integrado por artistas multidisciplinarios, desarrolla espectáculos itinerantes y procesos formativos en establecimientos de la región y del país. Es reconocido por democratizar el acceso al arte, fortalecer la educación artística y generar impacto comunitario mediante propuestas que integran humor, reflexión social y tradición clown.",
+  "redes": {},
+  "logo": "",
+  "portada": "",
+  "galeria": [],
+  "plan": null,
+  "proyectos": [],
+  "noticias": []
+ },
  "malloa-viva": {
   "slug": "malloa-viva",
   "nombre": "Fundación Malloa Viva",
@@ -689,6 +704,19 @@
    "subtitulo": "«Malloando»",
    "texto": "El plan busca fortalecer la articulación territorial y la participación comunitaria mediante la construcción colaborativa de un mapa cultural de Malloa, integrando relatos, memorias e hitos locales. Asimismo, contempla la instalación de tótems georreferenciados y una plataforma digital comunitaria que permitirá proyectar y preservar la identidad cultural del territorio en el tiempo.\n\nFuente: Presentación del hito de firma de convenios de los Planes de Fortalecimiento de Puntos de Cultura Comunitaria 2026, región de O’Higgins. Ficha en construcción: la información y las fotografías se completarán con la organización."
   },
+  "proyectos": [],
+  "noticias": []
+ },
+ "ong-accion-local": {
+  "slug": "ong-accion-local",
+  "nombre": "ONG Acción Local",
+  "comuna": "San Francisco de Mostazal",
+  "resena": "Organización de Mostazal fundada el 2017. Su misión es contribuir al bienestar colectivo y al desarrollo local a través de metodologías participativas y trabajo colaborativo. Se ha consolidado a nivel comunal y regional, promoviendo el empoderamiento comunitario para la transformación social y ambiental.",
+  "redes": {},
+  "logo": "",
+  "portada": "",
+  "galeria": [],
+  "plan": null,
   "proyectos": [],
   "noticias": []
  },
@@ -736,6 +764,36 @@
     "url": "/un-territorio-digital-para-la-red-de-puntos-de-cultura-comunitaria-de-ohiggins/"
    }
   ],
+  "noticias": []
+ },
+ "rumel": {
+  "slug": "rumel",
+  "nombre": "Rumel desde siempre para siempre",
+  "comuna": "Machalí",
+  "resena": "Rumel es una organización privada sin fines de lucro conformada por personas de Machalí, que tienen un objetivo y misión en común: preservar y poner en valor el patrimonio de la comuna de Machalí por medio de actividades artístico-culturales en el Museo ubicado en el sector de La Hacienda.\n\nLa agrupación comunitaria Rumel Desde Siempre… para siempre surge de la inquietud de diferentes machalinos y machalinas por la preservación y puesta en valor del patrimonio cultural de la comuna. Comenzó a funcionar a mediados de 2018 y el 10 de diciembre de ese año se constituyó como agrupación comunitaria con personalidad jurídica de la Municipalidad de Machalí.\n\nEn sus inicios el Museo Comunitario Rumel funcionó de manera itinerante, llevando cultura e historia local a distintos puntos de la comuna. El 3 de septiembre de 2021 consiguió por primera vez un espacio fijo en la histórica casona comunal de Av. San Juan 889, una construcción de 1890 (Hermanas Rey): recibió 414 visitantes entre septiembre y diciembre de 2021, 948 en 2022 y 751 en 2023. Desde diciembre de 2023 funciona en una casona patrimonial en la Hacienda de Machalí, donde hasta noviembre de 2024 ya había registrado 1.190 visitas.\n\nEl museo cuenta con cerca de 400 piezas y objetos, algunos agrupados en vitrinas y otros que recrean habitaciones de la vida campesina cotidiana de Machalí. Tiene dos salas cerradas, una sala abierta techada y un patio interior con exhibiciones permanentes sobre la vida de las y los machalinos en el siglo XX, con costumbres que se remontan a tiempos coloniales. Sus temáticas son educación e infancia, actividad arriera y campesina, actividad minera e industrial y vida cotidiana.\n\nEn 2025 el museo recibió en donación documentación de principios de 1900 sobre el período previo y la instalación de los campamentos mineros en Machalí, rescatada de un incendio, además de manuscritos del poeta popular Sergio Vera y de don Óscar Feliú donados por socios del museo. Así nació el proyecto «Rastreando Huellas, Tejiendo el Pasado» para crear el Archivo Comunitario Rumel, con asesorías técnicas del Archivo Regional de O’Higgins (Servicio Nacional del Patrimonio Cultural) en las que participan socias, socios y colaboradores de la comunidad.\n\nLa misión del archivo es preservar y poner en valor las formas de vida y cultura machalina, descentralizar y reconstruir la historia de la comuna por medio de testimonios y documentos, y transmitir rasgos identitarios y culturales desde las fuentes escritas y orales directas a las nuevas generaciones.",
+  "redes": {},
+  "logo": "",
+  "portada": "/wp-content/uploads/rumel-2026/rumel-fiestas-patrias-2024.webp",
+  "galeria": [
+   {
+    "src": "/wp-content/uploads/rumel-2026/rumel-asesoria-archivo-1.webp",
+    "texto": "Jornada de capacitación del Archivo Comunitario Rumel"
+   },
+   {
+    "src": "/wp-content/uploads/rumel-2026/rumel-asesoria-archivo-2.webp",
+    "texto": "Jornada de capacitación del Archivo Comunitario Rumel"
+   },
+   {
+    "src": "/wp-content/uploads/rumel-2026/rumel-documentos.webp",
+    "texto": "Revisión de documentos donados al Archivo Comunitario Rumel"
+   },
+   {
+    "src": "/wp-content/uploads/rumel-2026/rumel-entrada-museo.webp",
+    "texto": "Entrada del Museo Comunitario Rumel"
+   }
+  ],
+  "plan": null,
+  "proyectos": [],
   "noticias": []
  },
  "teatro-del-homenaje": {
@@ -835,5 +893,18 @@
     "url": "/este-jueves-en-quinta-de-tilcoco-homenaje-al-maestro-titiritero-juan-carlos-olmos/"
    }
   ]
+ },
+ "union-artistica-alberto-prieto-correa": {
+  "slug": "union-artistica-alberto-prieto-correa",
+  "nombre": "Unión Artística Alberto Prieto Correa",
+  "comuna": "Graneros",
+  "resena": "Organización funcional fundada en 2013 que impulsa la formación artística y cultural en la comuna de Graneros. Realiza talleres, charlas y capacitaciones en arte, literatura, reciclaje, música y danza, tanto autogestionadas como a través de proyectos adjudicados. Desde 2017 cuenta con su espacio cultural, el Ágora de Graneros.",
+  "redes": {},
+  "logo": "",
+  "portada": "",
+  "galeria": [],
+  "plan": null,
+  "proyectos": [],
+  "noticias": []
  }
 }
