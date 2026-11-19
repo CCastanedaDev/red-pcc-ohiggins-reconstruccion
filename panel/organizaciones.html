@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Fichas · Panel Red PCC</title>
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="stylesheet" href="/panel/panel.css">
+</head>
+<body>
+<header class="barra"><div class="barra-in"><a class="marca" href="/panel/"><img src="/wp-content/uploads/2024/10/cropped-Territorio-Digital-logo.webp" alt="">Panel Red PCC</a><nav></nav></div></header>
+<main>
+  <h1>Fichas de las organizaciones</h1>
+  <p class="sub">Como red puedes editar cualquier ficha. Tus cambios se publican de inmediato, sin revisión.</p>
+  <div class="tarjeta"><ul class="orgs" id="lista"><li>Cargando…</li></ul></div>
+</main>
+<script src="/panel/panel.js"></script>
+<script>
+Panel.iniciar({ soloAdmin: true, actual: "organizaciones.html" }).then(async (yo) => {
+  if (!yo) return;
+  const orgs = await Panel.api("organizaciones");
+  orgs.sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+  document.getElementById("lista").innerHTML = orgs
+    .map((o) => `<li><a href="/panel/ficha.html?org=${encodeURIComponent(o.slug)}">${Panel.esc(o.nombre)}</a></li>`)
+    .join("");
+});
+</script>
+</body>
+</html>

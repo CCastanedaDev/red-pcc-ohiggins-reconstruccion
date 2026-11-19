@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Revisar cambios · Panel Red PCC</title>
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="stylesheet" href="/panel/panel.css">
+</head>
+<body>
+<header class="barra"><div class="barra-in"><a class="marca" href="/panel/"><img src="/wp-content/uploads/2024/10/cropped-Territorio-Digital-logo.webp" alt="">Panel Red PCC</a><nav></nav></div></header>
+<main>
+  <h1>Cambios por revisar</h1>
+  <p class="sub">Lo que mandan las agrupaciones queda acá hasta que lo apruebes. Nada se publica sin tu OK.</p>
+  <div id="msg" class="msg oculto" role="status"></div>
+  <div id="lista"><p class="ayuda">Cargando…</p></div>
+</main>
+<script src="/panel/panel.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const NOMBRES = { instagram: "Instagram", facebook: "Facebook", youtube: "YouTube", tiktok: "TikTok", spotify: "Spotify", whatsapp: "WhatsApp", web: "Sitio web" };
+
+function fotosDe(d) {
+  return [d.portada, d.logo, ...(d.galeria || []).map((g) => g.src)].filter(Boolean);
+}
+
+function resumen(c) {
+  const a = c.vigente, b = c.propuesto;
+  const items = [];
+  if ((a.resena || "").trim() !== (b.resena || "").trim()) items.push("Cambió la reseña");
+  if (a.portada !== b.portada) items.push(b.portada ? "Cambió la foto principal" : "Quitó la foto principal");
+  if (a.logo !== b.logo) items.push(b.logo ? "Cambió el logo" : "Quitó el logo");
+  const redes = new Set([...Object.keys(a.redes || {}), ...Object.keys(b.redes || {})]);
+  for (const k of redes) {
+    const x = (a.redes || {})[k], y = (b.redes || {})[k];
+    if (x !== y) items.push(`${NOMBRES[k] || k}: ${y ? Panel.esc(y) : "<em>quitado</em>"}`);
+  }
+  const antes = new Set(fotosDe(a)), despues = new Set(fotosDe(b));
+  const nuevas = [...despues].filter((s) => !antes.has(s));
+  const quitadas = [...antes].filter((s) => !despues.has(s));
+  const textosA = JSON.stringify((a.galeria || []).map((g) => [g.src, g.texto]));
+  const textosB = JSON.stringify((b.galeria || []).map((g) => [g.src, g.texto]));
+  if (!nuevas.length && !quitadas.length && textosA !== textosB) items.push("Cambió el orden o las descripciones de las fotos");
+  let html = items.length ? `<ul class="cambios-lista">${items.map((i) => `<li>${i}</li>`).join("")}</ul>` : `<p class="ayuda">No hay diferencias con lo publicado.</p>`;
+  if (nuevas.length) html += `<p><span class="etiqueta nueva">${nuevas.length} foto${nuevas.length > 1 ? "s" : ""} nueva${nuevas.length > 1 ? "s" : ""}</span></p><div class="miniaturas">${nuevas.map((s) => `<a href="${Panel.esc(s)}" target="_blank" rel="noopener"><img src="${Panel.esc(s)}" alt="Foto nueva"></a>`).join("")}</div>`;
+  if (quitadas.length) html += `<p><span class="etiqueta quitada">${quitadas.length} foto${quitadas.length > 1 ? "s" : ""} quitada${quitadas.length > 1 ? "s" : ""}</span></p><div class="miniaturas">${quitadas.map((s) => `<img src="${Panel.esc(s)}" alt="Foto quitada">`).join("")}</div>`;
+  if ((a.resena || "").trim() !== (b.resena || "").trim()) {
+    html += `<div class="comparar"><div><h3>Reseña publicada</h3>${Panel.esc(a.resena)}</div><div><h3>Reseña nueva</h3>${Panel.esc(b.resena)}</div></div>`;
+  }
+  return html;
+}
+
+async function cargar() {
+  const lista = $("lista");
+  let cambios;
+  try {
+    cambios = await Panel.api("cambios");
+  } catch (err) {
+    return Panel.mensaje($("msg"), err.message, "error");
+  }
+  if (!cambios.length) {
+    lista.innerHTML = `<div class="tarjeta"><p style="margin:0">No hay cambios pendientes. 🎉</p></div>`;
+    return;
+  }
+  lista.innerHTML = cambios
+    .map(
+      (c) => `<article class="tarjeta cambio" id="c${c.id}">
+        <h2>${Panel.esc(c.nombre)}</h2>
+        <p class="ayuda">Enviado por ${Panel.esc(c.autor)} · ${Panel.fecha(c.creado)}</p>
+        ${resumen(c)}
+        <p><a class="btn sec chico" href="/PCC/${encodeURIComponent(c.org)}/?vista=${c.id}" target="_blank" rel="noopener">Ver cómo quedaría la ficha ↗</a></p>
+        <label for="com${c.id}">Comentario para la agrupación (opcional)</label>
+        <input type="text" id="com${c.id}" placeholder="Ej.: faltó la descripción de las fotos">
+        <div class="fila" style="margin-top:14px">
+          <button class="btn ok" type="button" data-aprobar="${c.id}">Aprobar y publicar</button>
+          <button class="btn peligro" type="button" data-rechazar="${c.id}">No publicar</button>
+        </div>
+      </article>`,
+    )
+    .join("");
+}
+
+$("lista").addEventListener("click", async (e) => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  const id = b.dataset.aprobar || b.dataset.rechazar;
+  if (!id) return;
+  const accion = b.dataset.aprobar ? "aprobar" : "rechazar";
+  if (accion === "rechazar" && !$("com" + id).value.trim() && !confirm("¿No publicar sin dejar comentario? La agrupación no sabrá qué corregir.")) return;
+  b.disabled = true;
+  try {
+    await Panel.api(`cambios/${id}/${accion}`, { metodo: "POST", datos: { comentario: $("com" + id).value } });
+    Panel.mensaje($("msg"), accion === "aprobar" ? "Publicado. La ficha ya se ve con los cambios." : "Listo, la agrupación verá tu comentario cuando entre.", "ok");
+    $("c" + id).remove();
+    if (!document.querySelector(".cambio")) cargar();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  } catch (err) {
+    Panel.mensaje($("msg"), err.message, "error");
+    b.disabled = false;
+  }
+});
+
+Panel.iniciar({ soloAdmin: true, actual: "revision.html" }).then((yo) => yo && cargar());
+</script>
+</body>
+</html>

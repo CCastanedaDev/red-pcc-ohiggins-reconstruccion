@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Contraseña · Panel Red PCC</title>
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="stylesheet" href="/panel/panel.css">
+</head>
+<body>
+<header class="barra"><div class="barra-in"><a class="marca" href="/panel/"><img src="/wp-content/uploads/2024/10/cropped-Territorio-Digital-logo.webp" alt="">Panel Red PCC</a><nav></nav></div></header>
+<main>
+  <form class="tarjeta" id="form" style="max-width:480px" novalidate>
+    <h1>Cambiar contraseña</h1>
+    <p class="sub" id="intro">Elige una contraseña que recuerdes, de al menos 8 caracteres.</p>
+    <div id="msg" class="msg oculto" role="alert"></div>
+    <label for="actual">Contraseña actual</label>
+    <input type="password" id="actual" autocomplete="current-password">
+    <label for="nueva">Contraseña nueva</label>
+    <input type="password" id="nueva" autocomplete="new-password" minlength="8">
+    <label for="repite">Repite la contraseña nueva</label>
+    <input type="password" id="repite" autocomplete="new-password">
+    <p style="margin-top:20px"><button class="btn" type="submit" id="boton">Guardar contraseña</button></p>
+  </form>
+</main>
+<script src="/panel/panel.js"></script>
+<script>
+let yo;
+Panel.iniciar({ actual: "clave.html" }).then((u) => {
+  if (!u) return;
+  yo = u;
+  if (u.debe_cambiar) {
+    document.getElementById("intro").textContent =
+      "Es tu primera vez entrando. En “Contraseña actual” escribe la contraseña temporal que te mandaron, y después elige una nueva que recuerdes (mínimo 8 caracteres).";
+  }
+});
+document.getElementById("form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById("msg");
+  if (nueva.value.length < 8) return Panel.mensaje(msg, "La contraseña nueva debe tener al menos 8 caracteres.", "error");
+  if (nueva.value !== repite.value) return Panel.mensaje(msg, "Las dos contraseñas nuevas no son iguales.", "error");
+  const boton = document.getElementById("boton");
+  boton.disabled = true;
+  try {
+    await Panel.api("clave", { metodo: "POST", datos: { actual: actual.value, nueva: nueva.value } });
+    Panel.mensaje(msg, "Listo, tu contraseña quedó cambiada.", "ok");
+    setTimeout(() => (location.href = yo && yo.rol === "admin" ? "/panel/revision.html" : "/panel/ficha.html"), 1200);
+  } catch (err) {
+    Panel.mensaje(msg, err.message, "error");
+    boton.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

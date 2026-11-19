@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Usuarios · Panel Red PCC</title>
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="stylesheet" href="/panel/panel.css">
+</head>
+<body>
+<header class="barra"><div class="barra-in"><a class="marca" href="/panel/"><img src="/wp-content/uploads/2024/10/cropped-Territorio-Digital-logo.webp" alt="">Panel Red PCC</a><nav></nav></div></header>
+<main>
+  <h1>Usuarios</h1>
+  <p class="sub">Crea un usuario por agrupación y mándale los datos por WhatsApp. La primera vez que entren tendrán que elegir su propia contraseña.</p>
+  <div id="msg" class="msg oculto" role="status"></div>
+  <div id="credencial" class="oculto"></div>
+
+  <form class="tarjeta" id="form" novalidate>
+    <h2>Nuevo usuario</h2>
+    <label for="org">Agrupación</label>
+    <select id="org"></select>
+    <label for="usuario">Usuario</label>
+    <input type="text" id="usuario" autocapitalize="none" spellcheck="false" placeholder="ej.: laliebre">
+    <p class="ayuda">Sin tildes ni espacios. Se sugiere solo al elegir la agrupación.</p>
+    <label for="nombre">Nombre de la persona (opcional)</label>
+    <input type="text" id="nombre" placeholder="ej.: Alondra">
+    <label><input type="checkbox" id="esadmin"> Es de la coordinación de la red (puede revisar y publicar todo)</label>
+    <p style="margin-top:16px"><button class="btn" type="submit">Crear usuario</button></p>
+  </form>
+
+  <section class="tarjeta">
+    <h2>Usuarios creados</h2>
+    <ul class="lista-usuarios" id="lista"><li>Cargando…</li></ul>
+  </section>
+</main>
+<script src="/panel/panel.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+let yo;
+
+function mostrarCredencial(usuario, clave) {
+  const c = $("credencial");
+  const texto = `Hola! Estos son tus datos para editar la ficha en la página de la Red PCC:\n\nEntra a: ${location.origin}/panel/\nUsuario: ${usuario}\nContraseña temporal: ${clave}\n\nLa primera vez te va a pedir que elijas tu propia contraseña.`;
+  c.className = "tarjeta";
+  c.innerHTML = `<h2>Datos para mandar por WhatsApp</h2><p class="ayuda">Cópialos ahora: la contraseña temporal no se vuelve a mostrar.</p><div class="credencial" id="cred-texto"></div><button class="btn" type="button" id="copiar">Copiar mensaje</button>`;
+  $("cred-texto").textContent = texto;
+  $("copiar").onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(texto);
+      $("copiar").textContent = "¡Copiado!";
+    } catch {
+      $("copiar").textContent = "Selecciónalo y cópialo a mano";
+    }
+  };
+  c.scrollIntoView({ behavior: "smooth" });
+}
+
+async function cargar() {
+  const us = await Panel.api("usuarios");
+  $("lista").innerHTML = us
+    .map(
+      (u) => `<li>
+        <div class="quien"><strong>${Panel.esc(u.usuario)}</strong>${u.nombre ? " · " + Panel.esc(u.nombre) : ""}
+          <small>${u.rol === "admin" ? "Coordinación de la red" : Panel.esc(u.organizacion || u.org)}${u.activo ? "" : " · desactivado"}${u.debe_cambiar && u.activo ? " · aún no entra por primera vez" : ""}</small></div>
+        <button class="btn sec chico" type="button" data-clave="${u.id}" data-usuario="${Panel.esc(u.usuario)}">Nueva contraseña</button>
+        ${u.id === yo.id ? "" : `<button class="btn ${u.activo ? "peligro" : "sec"} chico" type="button" data-activo="${u.activo ? 0 : 1}" data-id="${u.id}">${u.activo ? "Desactivar" : "Activar"}</button>`}
+      </li>`,
+    )
+    .join("");
+}
+
+$("lista").addEventListener("click", async (e) => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  try {
+    if (b.dataset.clave) {
+      if (!confirm(`¿Crear una contraseña nueva para ${b.dataset.usuario}? La anterior deja de funcionar.`)) return;
+      const r = await Panel.api(`usuarios/${b.dataset.clave}/clave`, { metodo: "POST" });
+      mostrarCredencial(b.dataset.usuario, r.clave);
+    } else if (b.dataset.activo !== undefined) {
+      await Panel.api(`usuarios/${b.dataset.id}/activo`, { metodo: "POST", datos: { activo: b.dataset.activo === "1" } });
+    }
+    cargar();
+  } catch (err) {
+    Panel.mensaje($("msg"), err.message, "error");
+  }
+});
+
+$("org").addEventListener("change", () => {
+  const o = $("org").selectedOptions[0];
+  if (o && o.value && !$("usuario").dataset.tocado) {
+    $("usuario").value = o.value.replace(/^(agrupacion|fundacion|centro-cultural|compania-de|compania|junta-de-vecinos|grupo-juvenil|colectivo|escuela)-/, "").replace(/-/g, "").slice(0, 20);
+  }
+});
+$("usuario").addEventListener("input", () => ($("usuario").dataset.tocado = "1"));
+$("esadmin").addEventListener("change", () => ($("org").disabled = $("esadmin").checked));
+
+$("form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  try {
+    const r = await Panel.api("usuarios", {
+      metodo: "POST",
+      datos: { usuario: $("usuario").value, nombre: $("nombre").value, rol: $("esadmin").checked ? "admin" : "org", org: $("org").value },
+    });
+    Panel.mensaje($("msg"), "");
+    mostrarCredencial(r.usuario, r.clave);
+    $("form").reset();
+    delete $("usuario").dataset.tocado;
+    $("org").disabled = false;
+    cargar();
+  } catch (err) {
+    Panel.mensaje($("msg"), err.message, "error");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+});
+
+Panel.iniciar({ soloAdmin: true, actual: "usuarios.html" }).then(async (u) => {
+  if (!u) return;
+  yo = u;
+  const orgs = await Panel.api("organizaciones");
+  orgs.sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+  $("org").innerHTML = `<option value="">Elige la agrupación…</option>` + orgs.map((o) => `<option value="${Panel.esc(o.slug)}">${Panel.esc(o.nombre)}</option>`).join("");
+  cargar();
+});
+</script>
+</body>
+</html>

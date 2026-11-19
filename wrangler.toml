@@ -1,0 +1,10 @@
+name = "red-pcc-ohiggins"
+pages_build_output_dir = "."
+compatibility_date = "2026-10-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "red-pcc-panel"
+
+database_id = "80beec40-2bad-4791-8514-de3349e24f59"
+migrations_dir = "migrations"

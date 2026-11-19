@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Panel · Red PCC O’Higgins</title>
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="stylesheet" href="/panel/panel.css">
+</head>
+<body>
+<main>
+  <form class="entrar tarjeta" id="form" novalidate>
+    <img class="logo" src="/wp-content/uploads/2024/10/cropped-Territorio-Digital-logo.webp" alt="">
+    <h1>Panel de la Red PCC</h1>
+    <p class="sub">Entra con el usuario y la contraseña que te mandó la red.</p>
+    <div id="msg" class="msg oculto" role="alert"></div>
+    <label for="usuario">Usuario</label>
+    <input type="text" id="usuario" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+    <label for="clave">Contraseña</label>
+    <input type="password" id="clave" autocomplete="current-password" required>
+    <button class="btn" type="submit" id="boton">Entrar</button>
+    <p class="ayuda" style="text-align:center;margin-top:16px">¿Olvidaste tu contraseña? Escríbele a la red y te mandan una nueva.</p>
+  </form>
+</main>
+<script src="/panel/panel.js"></script>
+<script>
+const destino = (u) => u.debe_cambiar ? "/panel/clave.html" : u.rol === "admin" ? "/panel/revision.html" : "/panel/ficha.html";
+Panel.api("yo").then((r) => (location.href = destino(r.usuario))).catch(() => {});
+document.getElementById("form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById("msg");
+  const boton = document.getElementById("boton");
+  boton.disabled = true;
+  boton.textContent = "Entrando…";
+  Panel.mensaje(msg, "");
+  try {
+    const r = await Panel.api("entrar", { metodo: "POST", datos: { usuario: usuario.value, clave: clave.value } });
+    location.href = destino(r.usuario);
+  } catch (err) {
+    Panel.mensaje(msg, err.message, "error");
+    boton.disabled = false;
+    boton.textContent = "Entrar";
+  }
+});
+</script>
+</body>
+</html>
