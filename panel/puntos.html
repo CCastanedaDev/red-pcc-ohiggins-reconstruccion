@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex, nofollow">
 <title>Puntos de cultura · Panel Red PCC</title>
 <link rel="icon" href="/favicon.ico" sizes="any">
-<link rel="stylesheet" href="/panel/panel.css?v=2">
+<link rel="stylesheet" href="/panel/panel.css?v=3">
 </head>
 <body>
 <header class="barra"><div class="barra-in"><a class="marca" href="/panel/"><img src="/wp-content/uploads/2024/10/cropped-Territorio-Digital-logo.webp" alt="">Panel Red PCC</a><nav></nav></div></header>
@@ -14,6 +14,17 @@
   <h1>Puntos de cultura</h1>
   <p class="sub">Todas las organizaciones de la red, quién tiene acceso y qué falta revisar.</p>
   <div id="msg" class="msg oculto" role="status"></div>
+  <p class="fila" style="margin:0 0 16px"><button type="button" class="btn" id="abrir-nueva">+ Agregar organización</button></p>
+  <form class="tarjeta oculto" id="form-nueva" autocomplete="off">
+    <h2>Agregar organización</h2>
+    <p class="ayuda">Se crea su ficha en la página («en construcción») y aparece en el directorio y el buscador. Después puedes completar la ficha y crearle un acceso.</p>
+    <label for="n-nombre">Nombre de la organización</label>
+    <input type="text" id="n-nombre" maxlength="120" required>
+    <label for="n-comuna">Comuna</label>
+    <input type="text" id="n-comuna" list="comunas" maxlength="60">
+    <div class="fila" style="margin-top:16px"><button class="btn" type="submit">Agregar</button><button class="btn sec" type="button" id="cancelar-nueva">Cancelar</button></div>
+  </form>
+  <datalist id="comunas"></datalist>
   <div id="credencial" class="oculto"></div>
 
   <div class="resumen" id="resumen"></div>
@@ -39,6 +50,8 @@ const FILTROS = [
   ["sin-entrar", "Aún no entran"],
   ["activos", "Con acceso activo"],
 ];
+const COMUNAS = ["Chépica", "Chimbarongo", "Codegua", "Coinco", "Coltauco", "Doñihue", "Graneros", "La Estrella", "Las Cabras", "Litueche", "Lolol", "Machalí", "Malloa", "Marchigüe", "Mostazal", "Nancagua", "Navidad", "Olivar", "Palmilla", "Paredones", "Peralillo", "Peumo", "Pichidegua", "Pichilemu", "Placilla", "Pumanque", "Quinta de Tilcoco", "Rancagua", "Rengo", "Requínoa", "San Fernando", "San Vicente", "Santa Cruz"];
+$("comunas").innerHTML = COMUNAS.map((c) => `<option value="${c}">`).join("");
 
 function estadoDe(p) {
   const activas = p.cuentas.filter((c) => c.activo);
@@ -51,6 +64,8 @@ function estadoDe(p) {
 }
 
 function cumple(p) {
+  if (filtro === "quitadas") return p.oculta;
+  if (p.oculta) return false;
   const e = estadoDe(p);
   if (filtro === "revisar") return e.revisar;
   if (filtro === "sin-acceso") return e.sinAcceso;
@@ -60,7 +75,9 @@ function cumple(p) {
 }
 
 function dibujarResumen() {
-  const n = (f) => puntos.filter((p) => f(estadoDe(p))).length;
+  const visibles = puntos.filter((p) => !p.oculta);
+  const quitadas = puntos.length - visibles.length;
+  const n = (f) => visibles.filter((p) => f(estadoDe(p))).length;
   const datos = [
     ["revisar", n((e) => e.revisar), "con cambios por revisar"],
     ["activos", n((e) => e.activos), "con acceso activo"],
@@ -70,7 +87,7 @@ function dibujarResumen() {
   $("resumen").innerHTML = datos
     .map(([f, num, txt]) => `<button type="button" class="dato${f === filtro ? " activo" : ""}" data-filtro="${f}"><strong>${num}</strong><span>${txt}</span></button>`)
     .join("");
-  $("filtros").innerHTML = FILTROS.map(([f, t]) => `<button type="button" class="btn chico ${f === filtro ? "" : "sec"}" data-filtro="${f}" aria-pressed="${f === filtro}">${t}</button>`).join("");
+  $("filtros").innerHTML = [...FILTROS, ...(quitadas || filtro === "quitadas" ? [["quitadas", `Quitadas de la página (${quitadas})`]] : [])].map(([f, t]) => `<button type="button" class="btn chico ${f === filtro ? "" : "sec"}" data-filtro="${f}" aria-pressed="${f === filtro}">${t}</button>`).join("");
 }
 
 function cuentaHtml(c) {
@@ -101,6 +118,9 @@ function dibujar() {
       if (p.pendiente) avisos.push(`<span class="etiqueta espera">Cambios por revisar · ${Panel.hace(p.pendiente.creado)}</span>`);
       if (p.editada) avisos.push(`<span class="etiqueta">Ficha editada ${Panel.hace(p.editada)}</span>`);
       if (p.confianza) avisos.push(`<span class="etiqueta nueva">Publica sin revisión</span>`);
+      if (p.oculta) avisos.unshift(`<span class="etiqueta quitada">Quitada de la página</span>`);
+      if (p.nueva) avisos.push(`<span class="etiqueta">Agregada en el panel</span>`);
+      const borrable = p.nueva && !p.cuentas.length && !p.editada && !p.pendiente;
       return `<li class="tarjeta punto" id="p-${p.slug}">
         <div class="punto-cabeza">
           <div><h2>${Panel.esc(p.nombre)}</h2><p class="ayuda" style="margin:0">${Panel.esc(p.comuna || "")}</p></div>
@@ -112,11 +132,25 @@ function dibujar() {
           </div>
         </div>
         ${avisos.length ? `<p class="fila" style="margin:10px 0 0;gap:6px">${avisos.join("")}</p>` : ""}
+        <form class="cambiar-datos oculto" data-datos="${p.slug}" autocomplete="off">
+          <label for="d-nombre-${p.slug}">Nombre</label>
+          <input type="text" id="d-nombre-${p.slug}" name="nombre" maxlength="120" value="${Panel.esc(p.nombre)}" required>
+          <label for="d-comuna-${p.slug}">Comuna</label>
+          <input type="text" id="d-comuna-${p.slug}" name="comuna" list="comunas" maxlength="60" value="${Panel.esc(p.comuna || "")}">
+          <div class="fila" style="margin-top:12px"><button class="btn chico" type="submit">Guardar</button><button class="btn sec chico" type="button" data-cerrar-datos="${p.slug}">Cancelar</button></div>
+        </form>
         <div class="punto-cuentas">
           ${p.cuentas.length ? `<ul class="cuentas">${p.cuentas.map(cuentaHtml).join("")}</ul>` : `<p class="ayuda" style="margin:0">${e.sinAcceso ? "Todavía nadie de esta organización tiene acceso." : ""}</p>`}
           <div class="fila" style="margin-top:10px">
             <a class="btn ${p.cuentas.length ? "sec" : ""} chico" href="/panel/usuarios.html?org=${enc}">${p.cuentas.length ? "+ Otra persona" : "Crear acceso"}</a>
             <label class="interruptor"><input type="checkbox" data-confianza="${p.slug}" ${p.confianza ? "checked" : ""}> Publica sin revisión</label>
+          </div>
+          <div class="fila acciones-org">
+            <button type="button" class="btn sec chico" data-abrir-datos="${p.slug}">Cambiar nombre o comuna</button>
+            ${p.oculta
+              ? `<button type="button" class="btn chico" data-mostrar="${p.slug}">Volver a mostrar en la página</button>`
+              : `<button type="button" class="btn peligro chico" data-quitar="${p.slug}">Quitar de la página</button>`}
+            ${borrable ? `<button type="button" class="btn peligro chico" data-borrar="${p.slug}">Borrar</button>` : ""}
           </div>
         </div>
       </li>`;
@@ -133,6 +167,20 @@ async function cargar() {
 document.addEventListener("click", async (ev) => {
   const b = ev.target.closest("button");
   if (!b) return;
+  if (b.id === "abrir-nueva" || b.id === "cancelar-nueva") {
+    const abrir = b.id === "abrir-nueva";
+    $("form-nueva").classList.toggle("oculto", !abrir);
+    $("abrir-nueva").classList.toggle("oculto", abrir);
+    if (abrir) $("n-nombre").focus();
+    return;
+  }
+  if (b.dataset.abrirDatos || b.dataset.cerrarDatos) {
+    const slug = b.dataset.abrirDatos || b.dataset.cerrarDatos;
+    const f = document.querySelector(`[data-datos="${slug}"]`);
+    f.classList.toggle("oculto", !b.dataset.abrirDatos);
+    if (b.dataset.abrirDatos) f.elements.nombre.focus();
+    return;
+  }
   if (b.dataset.filtro) {
     filtro = b.dataset.filtro === filtro && b.classList.contains("dato") ? "todos" : b.dataset.filtro;
     return dibujar();
@@ -142,6 +190,29 @@ document.addEventListener("click", async (ev) => {
       if (!confirm(`¿Crear una contraseña nueva para ${b.dataset.usuario}? La anterior deja de funcionar.`)) return;
       const r = await Panel.api(`usuarios/${b.dataset.clave}/clave`, { metodo: "POST" });
       Panel.credencial($("credencial"), b.dataset.usuario, r.clave);
+    } else if (b.dataset.quitar) {
+      const p = puntos.find((x) => x.slug === b.dataset.quitar);
+      const activas = p.cuentas.filter((c) => c.activo).length;
+      if (!confirm(`¿Quitar «${p.nombre}» de la página?\n\nSu ficha deja de verse y sale del directorio y del buscador.${activas ? ` Sus ${activas === 1 ? "cuenta queda desactivada" : activas + " cuentas quedan desactivadas"}.` : ""}\n\nNo se borra nada: puedes volver a mostrarla cuando quieras.`)) return;
+      await Panel.api(`puntos/${encodeURIComponent(p.slug)}/quitar`, { metodo: "POST" });
+      Panel.mensaje($("msg"), `Listo, «${p.nombre}» ya no aparece en la página. La encuentras en el filtro «Quitadas de la página».`, "ok");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      await cargar();
+    } else if (b.dataset.mostrar) {
+      const p = puntos.find((x) => x.slug === b.dataset.mostrar);
+      await Panel.api(`puntos/${encodeURIComponent(p.slug)}/mostrar`, { metodo: "POST" });
+      const hay = p.cuentas.length ? " Sus cuentas siguen desactivadas: actívalas si corresponde." : "";
+      filtro = "todos";
+      Panel.mensaje($("msg"), `Listo, «${p.nombre}» vuelve a aparecer en la página.${hay}`, "ok");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      await cargar();
+    } else if (b.dataset.borrar) {
+      const p = puntos.find((x) => x.slug === b.dataset.borrar);
+      if (!confirm(`¿Borrar «${p.nombre}» para siempre? Úsalo solo si la agregaste por error.`)) return;
+      await Panel.api(`puntos/${encodeURIComponent(p.slug)}/borrar`, { metodo: "POST" });
+      Panel.mensaje($("msg"), `Listo, se borró «${p.nombre}».`, "ok");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      await cargar();
     } else if (b.dataset.activo !== undefined) {
       const activar = b.dataset.activo === "1";
       if (!activar && !confirm(`¿Desactivar a ${b.dataset.usuario}? No podrá entrar al panel hasta que la vuelvas a activar.`)) return;
@@ -172,6 +243,40 @@ document.addEventListener("change", async (ev) => {
   } catch (err) {
     c.checked = !c.checked;
     Panel.mensaje($("msg"), err.message, "error");
+  }
+});
+
+document.addEventListener("submit", async (ev) => {
+  const f = ev.target;
+  ev.preventDefault();
+  const boton = f.querySelector("[type=submit]");
+  boton.disabled = true;
+  try {
+    if (f.id === "form-nueva") {
+      const nombre = $("n-nombre").value.trim();
+      const r = await Panel.api("puntos", { metodo: "POST", datos: { nombre, comuna: $("n-comuna").value.trim() } });
+      f.reset();
+      f.classList.add("oculto");
+      $("abrir-nueva").classList.remove("oculto");
+      filtro = "todos";
+      $("buscar").value = "";
+      await cargar();
+      const enc = encodeURIComponent(r.slug);
+      $("msg").className = "msg ok";
+      $("msg").innerHTML = `Listo, se agregó «${Panel.esc(nombre)}». Ahora puedes <a href="/panel/ficha.html?org=${enc}">completar su ficha</a> o <a href="/panel/usuarios.html?org=${enc}">crearle un acceso</a>.`;
+      document.getElementById("p-" + r.slug)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    } else if (f.dataset.datos) {
+      const slug = f.dataset.datos;
+      await Panel.api(`puntos/${encodeURIComponent(slug)}/datos`, { metodo: "POST", datos: { nombre: f.elements.nombre.value, comuna: f.elements.comuna.value } });
+      Panel.mensaje($("msg"), "Listo, se guardó el nombre y la comuna.", "ok");
+      await cargar();
+      document.getElementById("p-" + slug)?.scrollIntoView({ block: "center" });
+    }
+  } catch (err) {
+    Panel.mensaje($("msg"), err.message, "error");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  } finally {
+    boton.disabled = false;
   }
 });
 

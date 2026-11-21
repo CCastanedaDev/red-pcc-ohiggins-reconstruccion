@@ -1,6 +1,6 @@
 import {
-  FICHAS, SESION_DIAS, ahora, aleatorio, baseDeFicha, claveTemporal, cookieSesion, error, fichaVigente,
-  hashClave, igualSeguro, json, sha256, usuarioActual, validarFicha,
+  FICHAS, SESION_DIAS, ahora, aleatorio, claveTemporal, cookieSesion, error, fichaVigente,
+  hashClave, igualSeguro, json, organizacion, organizaciones, sha256, usuarioActual, validarFicha,
 } from "../_lib/util.js";
 
 const MAX_FOTO = 1_500_000;
@@ -29,7 +29,7 @@ export async function onRequest(context) {
     if (ruta === "yo") {
       let pendientes = 0;
       if (yo.rol === "admin") ({ n: pendientes } = await env.DB.prepare("SELECT COUNT(*) n FROM cambios WHERE estado = 'pendiente'").first());
-      return json({ usuario: publico(yo), organizacion: yo.org ? FICHAS[yo.org]?.nombre : null, pendientes });
+      return json({ usuario: publico(yo), organizacion: yo.org ? (await organizacion(env, yo.org))?.nombre ?? null : null, pendientes });
     }
     if (ruta === "clave" && metodo === "POST") return await cambiarClave(request, env, yo);
     if (yo.debe_cambiar) return error("Primero tienes que cambiar tu contraseña", 403);
@@ -39,7 +39,8 @@ export async function onRequest(context) {
     if (ruta === "fotos" && metodo === "POST") return await subirFoto(request, env, yo);
 
     if (yo.rol !== "admin") return error("No tienes permiso para esto", 403);
-    if (ruta === "organizaciones") return json(Object.values(FICHAS).map((f) => ({ slug: f.slug, nombre: f.nombre })));
+    if (ruta === "organizaciones")
+      return json(Object.values(await organizaciones(env)).filter((o) => !o.oculta).map((o) => ({ slug: o.slug, nombre: o.nombre })));
     if (ruta === "cambios" && metodo === "GET") return await listarCambios(env);
     let m;
     if ((m = ruta.match(/^cambios\/(\d+)\/(aprobar|rechazar)$/)) && metodo === "POST")
@@ -49,7 +50,8 @@ export async function onRequest(context) {
     if ((m = ruta.match(/^usuarios\/(\d+)\/(clave|activo)$/)) && metodo === "POST")
       return await editarUsuario(request, env, yo, Number(m[1]), m[2]);
     if (ruta === "puntos" && metodo === "GET") return await listarPuntos(env);
-    if ((m = ruta.match(/^puntos\/([a-z0-9-]+)\/(confianza|original)$/)) && metodo === "POST")
+    if (ruta === "puntos" && metodo === "POST") return await crearPunto(request, env, yo);
+    if ((m = ruta.match(/^puntos\/([a-z0-9-]+)\/(confianza|original|datos|quitar|mostrar|borrar)$/)) && metodo === "POST")
       return await editarPunto(request, env, yo, m[1], m[2]);
     if (ruta === "historial" && metodo === "GET") return await historial(request, env);
     if ((m = ruta.match(/^historial\/(\d+)\/restaurar$/)) && metodo === "POST")
@@ -139,13 +141,13 @@ function orgPedida(request, yo) {
 
 async function verFicha(request, env, yo) {
   const slug = orgPedida(request, yo);
-  const f = FICHAS[slug];
+  const f = await organizacion(env, slug);
   if (!f) return error("Ficha no encontrada", 404);
   const pendiente = await env.DB.prepare("SELECT id, datos, creado FROM cambios WHERE org = ? AND estado = 'pendiente' ORDER BY id DESC LIMIT 1").bind(slug).first();
   const ultimo = await env.DB.prepare("SELECT estado, comentario, revisado FROM cambios WHERE org = ? AND estado IN ('aprobado','rechazado') ORDER BY id DESC LIMIT 1").bind(slug).first();
   return json({
-    ficha: { slug, nombre: f.nombre, comuna: f.comuna, url: `/PCC/${slug}/` },
-    vigente: await fichaVigente(env, slug),
+    ficha: { slug, nombre: f.nombre, comuna: f.comuna, url: `/PCC/${slug}/`, oculta: f.oculta },
+    vigente: await fichaVigente(env, f),
     pendiente: pendiente ? { id: pendiente.id, datos: JSON.parse(pendiente.datos), creado: pendiente.creado } : null,
     ultimo,
     confianza: await esDeConfianza(env, slug),
@@ -154,9 +156,10 @@ async function verFicha(request, env, yo) {
 
 async function guardarFicha(request, env, yo) {
   const slug = orgPedida(request, yo);
-  if (!FICHAS[slug]) return error("Ficha no encontrada", 404);
+  const f = await organizacion(env, slug);
+  if (!f) return error("Ficha no encontrada", 404);
   const { datos } = await leerJson(request);
-  const v = await validarFicha(env, slug, datos);
+  const v = await validarFicha(env, f, datos);
   if (v.error) return error(v.error);
   const t = ahora();
   const texto = JSON.stringify(v.datos);
@@ -197,7 +200,7 @@ function tipoImagen(bytes) {
 
 async function subirFoto(request, env, yo) {
   const slug = orgPedida(request, yo);
-  if (!FICHAS[slug]) return error("Ficha no encontrada", 404);
+  if (!(await organizacion(env, slug))) return error("Ficha no encontrada", 404);
   const largo = Number(request.headers.get("content-length") || 0);
   if (largo > MAX_FOTO) return error("La foto es muy pesada", 413);
   const bytes = await request.arrayBuffer();
@@ -225,16 +228,18 @@ async function listarCambios(env) {
        FROM cambios c JOIN usuarios u ON u.id = c.usuario_id
       WHERE c.estado = 'pendiente' ORDER BY c.creado`,
   ).all();
+  const O = await organizaciones(env);
   const salida = [];
   for (const c of results) {
+    if (!O[c.org]) continue;
     salida.push({
       id: c.id,
       org: c.org,
-      nombre: FICHAS[c.org]?.nombre || c.org,
+      nombre: O[c.org].nombre,
       autor: c.nombre || c.usuario,
       creado: c.creado,
       propuesto: JSON.parse(c.datos),
-      vigente: await fichaVigente(env, c.org),
+      vigente: await fichaVigente(env, O[c.org]),
     });
   }
   return json(salida);
@@ -260,7 +265,8 @@ async function revisar(request, env, yo, id, accion) {
 
 async function listarUsuarios(env) {
   const { results } = await env.DB.prepare("SELECT id, usuario, nombre, rol, org, activo, debe_cambiar, super, creado, ultimo_ingreso FROM usuarios ORDER BY super DESC, rol, usuario").all();
-  return json(results.map((u) => ({ ...u, organizacion: u.org ? FICHAS[u.org]?.nombre : null })));
+  const O = await organizaciones(env);
+  return json(results.map((u) => ({ ...u, organizacion: u.org ? O[u.org]?.nombre ?? u.org : null })));
 }
 
 async function crearUsuario(request, env, yo) {
@@ -269,7 +275,11 @@ async function crearUsuario(request, env, yo) {
   if (!/^[a-z0-9._-]{3,40}$/.test(usuario)) return error("El usuario solo puede tener letras sin tilde, números, punto o guion (3 a 40)");
   const rol = d.rol === "admin" ? "admin" : "org";
   const org = rol === "org" ? String(d.org || "") : null;
-  if (rol === "org" && !FICHAS[org]) return error("Elige la organización");
+  if (rol === "org") {
+    const o = await organizacion(env, org);
+    if (!o) return error("Elige la organización");
+    if (o.oculta) return error("Esa organización está quitada de la página. Vuelve a mostrarla antes de darle acceso.");
+  }
   const existe = await env.DB.prepare("SELECT 1 FROM usuarios WHERE usuario = ?").bind(usuario).first();
   if (existe) return error("Ese usuario ya existe");
   const clave = claveTemporal();
@@ -318,10 +328,12 @@ async function listarPuntos(env) {
   const por = (r) => Object.fromEntries(r.results.map((x) => [x.org, x]));
   const P = por(pend), U = por(pub), C = por(conf), L = por(ult);
   return json(
-    Object.values(FICHAS).map((f) => ({
+    Object.values(await organizaciones(env)).map((f) => ({
       slug: f.slug,
       nombre: f.nombre,
       comuna: f.comuna,
+      nueva: f.nueva,
+      oculta: f.oculta,
       cuentas: us.results.filter((u) => u.org === f.slug),
       pendiente: P[f.slug] ? { id: P[f.slug].id, creado: P[f.slug].creado } : null,
       editada: U[f.slug] ? U[f.slug].actualizado : null,
@@ -331,8 +343,98 @@ async function listarPuntos(env) {
   );
 }
 
+const RESERVADOS = new Set(["index-html", "plantilla-ficha", "nueva", "panel"]);
+
+function slugDe(nombre) {
+  return nombre
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")
+    .slice(0, 60).replace(/-+$/, "");
+}
+
+function leerDatosPunto(d) {
+  const nombre = String(d.nombre || "").replace(/\s+/g, " ").trim();
+  const comuna = String(d.comuna || "").replace(/\s+/g, " ").trim();
+  if (nombre.length < 3 || nombre.length > 120) return { error: "Escribe el nombre de la organización (3 a 120 letras)" };
+  if (comuna.length > 60) return { error: "El nombre de la comuna es muy largo" };
+  return { nombre, comuna };
+}
+
+async function crearPunto(request, env, yo) {
+  const d = leerDatosPunto(await leerJson(request));
+  if (d.error) return error(d.error);
+  const O = await organizaciones(env);
+  const repetida = Object.values(O).find((o) => o.nombre.toLowerCase() === d.nombre.toLowerCase());
+  if (repetida) return error(`Ya existe «${repetida.nombre}»${repetida.oculta ? " (está quitada de la página: puedes volver a mostrarla)" : ""}.`);
+  const base = slugDe(d.nombre);
+  if (base.length < 3) return error("El nombre tiene que tener letras o números");
+  let slug = base;
+  for (let i = 2; O[slug] || FICHAS[slug] || RESERVADOS.has(slug); i++) slug = `${base}-${i}`;
+  const t = ahora();
+  await env.DB.batch([
+    env.DB.prepare("INSERT INTO organizaciones (slug, nombre, comuna, nueva, creada, actualizada) VALUES (?, ?, ?, 1, ?, ?)").bind(slug, d.nombre, d.comuna, t, t),
+    anotar(env, yo, slug, "agrego", `«${d.nombre}»${d.comuna ? " · " + d.comuna : ""}`),
+  ]);
+  return json({ ok: true, slug });
+}
+
 async function editarPunto(request, env, yo, slug, accion) {
-  if (!FICHAS[slug]) return error("Ficha no encontrada", 404);
+  const f = await organizacion(env, slug);
+  if (!f) return error("Ficha no encontrada", 404);
+  const t = ahora();
+  // Crea la fila de cambios si no existe; si existe, solo toca los campos indicados
+  const fila = (campos) =>
+    env.DB.prepare(
+      `INSERT INTO organizaciones (slug, nombre, comuna, oculta, creada, actualizada) VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(slug) DO UPDATE SET ${Object.keys(campos).map((k) => `${k} = excluded.${k}`).join(", ")}, actualizada = excluded.actualizada`,
+    ).bind(slug, campos.nombre ?? null, campos.comuna ?? null, campos.oculta ?? 0, t, t);
+
+  if (accion === "datos") {
+    const d = leerDatosPunto(await leerJson(request));
+    if (d.error) return error(d.error);
+    const orig = FICHAS[slug];
+    // En las fichas del sitio se guarda solo lo que cambia; si vuelve al original queda NULL
+    const nombre = orig && d.nombre === orig.nombre ? null : d.nombre;
+    const comuna = orig && d.comuna === (orig.comuna || "") ? null : d.comuna;
+    const antes = `${f.nombre}${f.comuna ? " · " + f.comuna : ""}`;
+    await env.DB.batch([
+      fila({ nombre, comuna }),
+      anotar(env, yo, slug, "datos", `Antes: «${antes}». Ahora: «${d.nombre}${d.comuna ? " · " + d.comuna : ""}»`),
+    ]);
+    return json({ ok: true });
+  }
+  if (accion === "quitar") {
+    const { results: cuentas } = await env.DB.prepare("SELECT id FROM usuarios WHERE org = ? AND activo = 1").bind(slug).all();
+    await env.DB.batch([
+      fila({ oculta: 1 }),
+      env.DB.prepare("UPDATE usuarios SET activo = 0 WHERE org = ?").bind(slug),
+      env.DB.prepare("DELETE FROM sesiones WHERE usuario_id IN (SELECT id FROM usuarios WHERE org = ?)").bind(slug),
+      anotar(env, yo, slug, "quito", cuentas.length === 1 ? "Se desactivó su cuenta" : cuentas.length ? `Se desactivaron sus ${cuentas.length} cuentas` : ""),
+    ]);
+    return json({ ok: true, cuentas: cuentas.length });
+  }
+  if (accion === "mostrar") {
+    await env.DB.batch([fila({ oculta: 0 }), anotar(env, yo, slug, "mostro", "")]);
+    return json({ ok: true });
+  }
+  if (accion === "borrar") {
+    // Solo para organizaciones creadas en el panel por error, que nunca se usaron
+    if (!f.nueva) return error("Las organizaciones del sitio no se borran: usa «Quitar de la página».");
+    const [u, c, fo] = await env.DB.batch([
+      env.DB.prepare("SELECT COUNT(*) n FROM usuarios WHERE org = ?").bind(slug),
+      env.DB.prepare("SELECT COUNT(*) n FROM cambios WHERE org = ?").bind(slug),
+      env.DB.prepare("SELECT COUNT(*) n FROM fotos WHERE org = ?").bind(slug),
+    ]);
+    if (u.results[0].n || c.results[0].n || fo.results[0].n)
+      return error("Esta organización ya tiene cuentas, fotos o cambios guardados. Usa «Quitar de la página».");
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM organizaciones WHERE slug = ?").bind(slug),
+      env.DB.prepare("DELETE FROM confianza WHERE org = ?").bind(slug),
+      anotar(env, yo, null, "borro", `«${f.nombre}»`),
+    ]);
+    return json({ ok: true });
+  }
   if (accion === "confianza") {
     const { confianza } = await leerJson(request);
     await env.DB.batch([
@@ -355,7 +457,8 @@ async function editarPunto(request, env, yo, slug, accion) {
 
 async function historial(request, env) {
   const slug = new URL(request.url).searchParams.get("org");
-  if (slug && !FICHAS[slug]) return error("Ficha no encontrada", 404);
+  const O = await organizaciones(env);
+  if (slug && !O[slug]) return error("Ficha no encontrada", 404);
   const nombreDe = (u) => u.nombre || u.usuario || "—";
   const consulta = env.DB.prepare(
     `SELECT r.id, r.ts, r.org, r.accion, r.detalle, u.usuario, u.nombre
@@ -365,7 +468,7 @@ async function historial(request, env) {
   const reg = await (slug ? consulta.bind(slug) : consulta).all();
   const salida = {
     registro: reg.results.map((r) => ({
-      id: r.id, ts: r.ts, org: r.org, nombreOrg: r.org ? FICHAS[r.org]?.nombre || r.org : null,
+      id: r.id, ts: r.ts, org: r.org, nombreOrg: r.org ? O[r.org]?.nombre || r.org : null,
       accion: r.accion, detalle: r.detalle, quien: nombreDe(r),
     })),
   };
@@ -376,7 +479,7 @@ async function historial(request, env) {
         WHERE c.org = ? AND c.estado = 'aprobado' ORDER BY c.id DESC LIMIT 50`,
     ).bind(slug).all();
     const actual = await env.DB.prepare("SELECT cambio_id FROM publicadas WHERE org = ?").bind(slug).first();
-    salida.ficha = { slug, nombre: FICHAS[slug].nombre, url: `/PCC/${slug}/` };
+    salida.ficha = { slug, nombre: O[slug].nombre, url: `/PCC/${slug}/`, oculta: O[slug].oculta };
     salida.actual = actual ? actual.cambio_id : null;
     salida.versiones = v.results.map((c) => ({
       id: c.id,

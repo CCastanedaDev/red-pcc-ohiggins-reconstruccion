@@ -120,3 +120,5 @@ ul.cambios-lista{margin:6px 0 12px;padding-left:20px;font-size:15px}
 .registro li{display:grid;grid-template-columns:150px 1fr;gap:12px;padding:10px 0;border-bottom:1px solid var(--borde);font-size:15px}
 .registro .cuando{color:var(--gris);font-size:13px}
 @media(max-width:600px){.registro li{grid-template-columns:1fr;gap:2px}}
+.acciones-org{margin-top:12px;padding-top:12px;border-top:1px solid var(--borde);gap:6px}
+.cambiar-datos{margin-top:12px;padding:4px 14px 14px;border:1px solid var(--borde);border-radius:10px;background:#faf9fa}

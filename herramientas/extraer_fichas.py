@@ -142,6 +142,8 @@ def extraer(ruta):
 
 fichas = {}
 for ruta in sorted((SITIO / "PCC").glob("*/index.html")):
+    if ruta.parent.name == "plantilla-ficha":  # plantilla de las fichas creadas en el panel
+        continue
     f = extraer(ruta)
     fichas[f["slug"]] = f
 SALIDA.parent.mkdir(parents=True, exist_ok=True)

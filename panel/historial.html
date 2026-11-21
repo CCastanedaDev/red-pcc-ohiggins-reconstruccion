@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex, nofollow">
 <title>Historial · Panel Red PCC</title>
 <link rel="icon" href="/favicon.ico" sizes="any">
-<link rel="stylesheet" href="/panel/panel.css?v=2">
+<link rel="stylesheet" href="/panel/panel.css?v=3">
 </head>
 <body>
 <header class="barra"><div class="barra-in"><a class="marca" href="/panel/"><img src="/wp-content/uploads/2024/10/cropped-Territorio-Digital-logo.webp" alt="">Panel Red PCC</a><nav></nav></div></header>
@@ -48,6 +48,18 @@ const ACCIONES = {
   desactivo: "desactivó una cuenta",
   confianza: "activó la publicación sin revisión",
   "sin-confianza": "quitó la publicación sin revisión",
+  agrego: "agregó la organización",
+  datos: "cambió el nombre o la comuna",
+  quito: "quitó la organización de la página",
+  mostro: "volvió a mostrar la organización en la página",
+  borro: "borró una organización agregada por error",
+};
+// En el historial general, estas acciones se leen mejor sin «en»
+const SOBRE_ORG = {
+  agrego: "agregó la organización",
+  datos: "cambió el nombre o la comuna de",
+  quito: "quitó de la página a",
+  mostro: "volvió a mostrar en la página a",
 };
 
 async function cargar() {
@@ -80,8 +92,10 @@ async function cargar() {
     ? r.registro
         .map(
           (x) => `<li><span class="cuando">${Panel.fecha(x.ts)}</span>
-            <span><strong>${Panel.esc(x.quien)}</strong> ${ACCIONES[x.accion] || Panel.esc(x.accion)}${
-              !org && x.org ? ` en <a href="/panel/historial.html?org=${encodeURIComponent(x.org)}">${Panel.esc(x.nombreOrg)}</a>` : ""
+            <span><strong>${Panel.esc(x.quien)}</strong> ${
+              !org && x.org
+                ? `${SOBRE_ORG[x.accion] || (ACCIONES[x.accion] || Panel.esc(x.accion)) + " en"} <a href="/panel/historial.html?org=${encodeURIComponent(x.org)}">${Panel.esc(x.nombreOrg)}</a>`
+                : ACCIONES[x.accion] || Panel.esc(x.accion)
             }${x.detalle ? ` <small>${Panel.esc(x.detalle)}</small>` : ""}</span></li>`,
         )
         .join("")

@@ -101,8 +101,42 @@ export const REDES = [
   ["web", "Sitio web"],
 ];
 
-export function baseDeFicha(slug) {
-  const f = FICHAS[slug];
+/* ---------- Organizaciones ---------- */
+
+const VACIA = { resena: "", redes: {}, logo: "", portada: "", galeria: [], plan: null, proyectos: [], noticias: [] };
+
+function mezclar(f, r) {
+  return {
+    ...f,
+    nombre: r?.nombre || f.nombre,
+    comuna: r?.comuna ?? f.comuna ?? "",
+    nueva: !!r?.nueva,
+    oculta: !!r?.oculta,
+    cambiada: !!r && !r.nueva && (!!r.nombre || r.comuna != null),
+  };
+}
+
+/** Todas las organizaciones: las del sitio más lo que la coordinación agregó o cambió en el panel. */
+export async function organizaciones(env) {
+  const { results } = await env.DB.prepare("SELECT * FROM organizaciones").all();
+  const extra = Object.fromEntries(results.map((r) => [r.slug, r]));
+  const todas = {};
+  for (const f of Object.values(FICHAS)) todas[f.slug] = mezclar(f, extra[f.slug]);
+  for (const r of results) if (r.nueva && !todas[r.slug]) todas[r.slug] = mezclar({ ...VACIA, slug: r.slug, nombre: r.nombre, comuna: r.comuna }, r);
+  return todas;
+}
+
+/** Una organización (o null si no existe). Incluye las quitadas: quien llama decide. */
+export async function organizacion(env, slug) {
+  if (!slug || !/^[a-z0-9-]{1,80}$/.test(slug)) return null;
+  const r = await env.DB.prepare("SELECT * FROM organizaciones WHERE slug = ?").bind(slug).first();
+  if (FICHAS[slug]) return mezclar(FICHAS[slug], r);
+  if (r?.nueva) return mezclar({ ...VACIA, slug, nombre: r.nombre, comuna: r.comuna }, r);
+  return null;
+}
+
+/** Datos editables de la ficha tal como están en el sitio (o vacíos si se creó en el panel). */
+export function baseDeFicha(f) {
   if (!f) return null;
   const redes = { ...f.redes };
   if (redes.web && /wa\.me|whatsapp/.test(redes.web)) {
@@ -118,15 +152,16 @@ export function baseDeFicha(slug) {
   };
 }
 
-export async function fichaVigente(env, slug) {
-  const pub = await env.DB.prepare("SELECT datos FROM publicadas WHERE org = ?").bind(slug).first();
-  return pub ? JSON.parse(pub.datos) : baseDeFicha(slug);
+export async function fichaVigente(env, f) {
+  const pub = await env.DB.prepare("SELECT datos FROM publicadas WHERE org = ?").bind(f.slug).first();
+  return pub ? JSON.parse(pub.datos) : baseDeFicha(f);
 }
 
 const URL_FOTO = /^\/(medios\/[0-9a-f]{32}|wp-content\/uploads\/[\w\-./%]+\.(webp|jpe?g|png|gif))$/i;
 
 /** Valida y limpia lo que envía el panel. Devuelve {datos} o {error}. */
-export async function validarFicha(env, slug, entrada) {
+export async function validarFicha(env, f, entrada) {
+  const slug = f.slug;
   if (!entrada || typeof entrada !== "object") return { error: "Datos inválidos" };
   const texto = (v, max) => String(v ?? "").replace(/\r\n?/g, "\n").trim().slice(0, max);
 
@@ -148,11 +183,11 @@ export async function validarFicha(env, slug, entrada) {
   }
 
   // Solo se permiten fotos de la propia ficha (base) o subidas por la misma organización
-  const base = baseDeFicha(slug);
+  const base = baseDeFicha(f);
   const permitidas = new Set([base.logo, base.portada, ...base.galeria.map((g) => g.src)].filter(Boolean));
   const propias = await env.DB.prepare("SELECT id FROM fotos WHERE org = ?").bind(slug).all();
   for (const r of propias.results) permitidas.add(`/medios/${r.id}`);
-  const vigente = await fichaVigente(env, slug);
+  const vigente = await fichaVigente(env, f);
   for (const s of [vigente.logo, vigente.portada, ...vigente.galeria.map((g) => g.src)]) if (s) permitidas.add(s);
 
   const foto = (src) => {
@@ -189,14 +224,13 @@ function lista(items) {
     .join("")}</ul>`;
 }
 
-export function renderFicha(slug, d) {
-  const f = FICHAS[slug];
+export function renderFicha(f, d) {
   const nombre = escapar(f.nombre);
   let h = `<h1>${nombre}</h1>`;
   if (d.logo) h += `<figure class="organizacion-logo"><img src="${escapar(d.logo)}" alt="Logotipo de ${nombre}" loading="lazy"></figure>`;
   if (d.portada) h += `<figure class="imagen-destacada"><img src="${escapar(d.portada)}" alt="Foto principal de ${nombre}" loading="eager"></figure>`;
   if (f.comuna) h += `<p class="ficha-lugar"><strong>Punto de Cultura Comunitaria</strong> · ${escapar(f.comuna)}</p>`;
-  h += `<div class="ficha-resena">${parrafos(d.resena)}</div>`;
+  h += `<div class="ficha-resena">${d.resena ? parrafos(d.resena) : "<p>Ficha en construcción.</p>"}</div>`;
 
   const redes = REDES.filter(([k]) => d.redes?.[k]);
   if (redes.length) {
